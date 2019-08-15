@@ -8,8 +8,10 @@
 ; Change direction: W A S D
 ; Select card: <space>
 
-define appleL         $00 ; screen location of apple, low byte
-define appleH         $01 ; screen location of apple, high byte
+; Memory map
+define cards   $00  ; Cards array
+define appleL  $70  ; Screen location of apple, low byte
+define appleH  $71  ; Screen location of apple, high byte
 
 ; ASCII values of keys controlling the game
 define ASCII_w      $77
@@ -27,15 +29,30 @@ define card_color   $0f
 define card_color_s $01
 define card_pos     $0200
 
+; Other constants
+define nl   $1f
+
 ; System variables
 define sys_random   $fe
 define sys_last_key $ff
 
-
-; Cards
-cards:  .DB $02, 02, $05, $05, $06, $06, $07, $07
-
-    jmp init
+; Colors
+define cl_black        $0
+define cl_white        $1
+define cl_red          $2
+define cl_cyan         $3
+define cl_purple       $4
+define cl_green        $5
+define cl_blue         $6
+define cl_yellow       $7
+define cl_orange       $8
+define cl_brown        $9
+define cl_light_red    $a
+define cl_dark_grey    $b
+define cl_grey         $c
+define cl_light_green  $d
+define cl_light_blue   $e
+define cl_light_grey   $f
 
 init:
     jsr init_cards
@@ -45,40 +62,31 @@ init:
 
 
 init_cards:
-    ; TODO
-    ; TODO: sort cards array: http://www.6502.org/source/sorting/bubble8.htm
-    jsr init_card
+    ldy #0
+
+    lda #cl_red
+    jsr init_card_pair
+
+    lda #cl_green
+    jsr init_card_pair
+
+    lda #cl_blue
+    jsr init_card_pair
+
+    lda #cl_yellow
+    jsr init_card_pair
+
+    ; TODO: randomly sort cards array: http://www.6502.org/source/sorting/bubble8.htm
+
     rts
 
 
-init_card:
-    ; TODO
-    
-    ldx #0
-    ldy cards,x
+init_card_pair:
+    sta (cards),y
+    iny
 
-    lda #0
-    tax
-    tya
-    sta card_pos,x
-
-    txa
-    tax
-    inx
-    tya
-    sta card_pos,x
-
-    txa
-    adc #$1f
-    tax
-    tya
-    sta card_pos,x
-
-    txa
-    tax
-    inx
-    tya
-    sta card_pos,x
+    sta (cards),y
+    iny
 
     rts
 
@@ -100,6 +108,39 @@ loop:
 
 draw:
     ; TODO
+    jsr draw_card
+    rts
+
+
+draw_card:
+    ; TODO
+    
+    ldx #0
+    ldy cards,x
+
+    lda #0
+    tax
+    tya
+    sta card_pos,x
+
+    txa
+    tax
+    inx
+    tya
+    sta card_pos,x
+
+    txa
+    adc #nl
+    tax
+    tya
+    sta card_pos,x
+
+    txa
+    tax
+    inx
+    tya
+    sta card_pos,x
+
     rts
 
 
