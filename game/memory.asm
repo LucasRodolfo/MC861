@@ -31,6 +31,7 @@ define card_pos     $0200
 
 ; Other constants
 define nl   $1f
+define nr   $3f
 
 ; System variables
 define sys_random   $fe
@@ -56,9 +57,8 @@ define cl_light_grey   $f
 
 init:
     jsr init_cards
-
     jsr loop
-    rts
+    jmp end_game
 
 
 init_cards:
@@ -104,10 +104,13 @@ loop:
     ; TODO: read `compare` result
     ; TODO: sleep if they don't match
 
-    jsr end_game
+    ; TODO: `rts` only if the game has ended
+    rts
+
 
 draw:
     ; TODO
+    ldx #0
     jsr draw_card
     rts
 
@@ -115,7 +118,6 @@ draw:
 draw_card:
     ; TODO
     
-    ldx #0
     ldy cards,x
 
     lda #0
