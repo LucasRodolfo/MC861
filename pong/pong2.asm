@@ -18,8 +18,8 @@
   TOPWALL        = $20
   BOTTOMWALL     = $E0
   LEFTWALL       = $04
-  PADDLE1X       = $08  ; horizontal position for paddles, doesnt move
-  PADDLE2X       = $F0
+; PADDLE1X       = $08  ; horizontal position for paddles, doesnt move
+; PADDLE2X       = $F0
   
 ;----------------------------------------------------------------
 ; variables
@@ -35,8 +35,11 @@
   ballright     .dsb 1  ; 1 = ball moving right
   ballspeedx    .dsb 1  ; ball horizontal speed per frame
   ballspeedy    .dsb 1  ; ball vertical speed per frame
+  paddlespeedy    .dsb 1
   paddle1ytop   .dsb 1  ; player 1 paddle top vertical position
-  paddle2ybot   .dsb 1  ; player 2 paddle bottom vertical position
+  paddle1ybot   .dsb 1
+  paddle2ytop   .dsb 1  ; player 2 paddle bottom vertical position
+  paddle2ybot   .dsb 1
   buttons1      .dsb 1  ; player 1 gamepad buttons, one bit per button
   buttons2      .dsb 1  ; player 2 gamepad buttons, one bit per button
   scoreOnes     .dsb 1  ; byte for each digit in the decimal score
@@ -117,6 +120,14 @@ LoadPalettesLoop:
   LDA #$02
   STA ballspeedx
   STA ballspeedy
+  STA paddlespeedy
+
+  LDA #$70
+  STA paddle1ybot
+  STA paddle2ybot
+  LDA #$90
+  STA paddle1ytop
+  STA paddle2ytop
 
 ;;;Set initial score value
   LDA #$00
@@ -254,17 +265,86 @@ MoveBallDown:
   STA ballup         ;;bounce, ball now moving down
 MoveBallDownDone:
 
-MovePaddleUp:
+MovePaddle1Up:
   ;;if up button pressed
   ;;  if paddle top > top wall
   ;;    move paddle top and bottom up
-MovePaddleUpDone:
+  LDA buttons1
+  AND #%00001000
+  TAX
+  CPX #$00
+  BEQ MovePaddle1UpDone
+  LDA paddle1ybot
+  CMP #TOPWALL
+  BCC MovePaddle1UpDone  
+  LDA paddle1ybot
+  SBC paddlespeedy
+  STA paddle1ybot
+  LDA paddle1ytop
+  SBC paddlespeedy
+  STA paddle1ytop
+MovePaddle1UpDone:
+MovePaddle2Up:
+  LDA buttons2
+  AND #%00001000
+  TAX
+  CPX #$00
+  BEQ MovePaddle2UpDone
+  LDA paddle2ybot
+  CMP #TOPWALL
+  BCC MovePaddle2UpDone  
+  LDA paddle2ybot
+  SBC paddlespeedy
+  STA paddle2ybot
+  LDA paddle2ytop
+  SBC paddlespeedy
+  STA paddle2ytop
+MovePaddle2UpDone:
 
-MovePaddleDown:
+
+MovePaddle1Down:
   ;;if down button pressed
   ;;  if paddle bottom < bottom wall
-  ;;    move paddle top and bottom down
-MovePaddleDownDone:
+  ;;    move paddle top and LDA #$10
+ ; STA paddle2ybot
+  ;LDA #$30
+  ;STA paddle2ytopbottom down
+
+  LDA buttons1
+  AND #%00000100
+  TAX
+  CPX #$00
+  BEQ MovePaddle1DownDone
+  LDA paddle1ytop
+  CMP #BOTTOMWALL
+  BCS MovePaddle1DownDone  
+  LDA paddle1ybot
+  CLC
+  ADC paddlespeedy
+  STA paddle1ybot
+  LDA paddle1ytop
+  CLC
+  ADC paddlespeedy
+  STA paddle1ytop
+MovePaddle1DownDone:
+MovePaddle2Down:
+  LDA buttons2
+  AND #%00000100
+  TAX
+  CPX #$00
+  BEQ MovePaddle2DownDone
+  LDA paddle2ytop
+  CMP #BOTTOMWALL
+  BCS MovePaddle2DownDone  
+  LDA paddle2ybot
+  CLC
+  ADC paddlespeedy
+  STA paddle2ybot
+  LDA paddle2ytop
+  CLC
+  ADC paddlespeedy
+  STA paddle2ytop
+MovePaddle2DownDone:
   
 CheckPaddleCollision:
   ;;if ball x < paddle1x
@@ -285,7 +365,50 @@ UpdateSprites:
   LDA ballx
   STA $0203
   ;;update paddle sprites
-  RTS
+DrawPaddle1:
+  LDX paddle1ybot
+  LDY #$00
+DrawPaddle1Loop:
+  TXA
+  STA #$0204, y
+  INY
+  LDA #$31
+  STA $0204, y
+  INY
+  LDA #$00
+  STA $0204, y
+  INY
+  LDA #$08
+  STA $0204, y
+  INY
+  TXA
+  CLC
+  ADC #$08
+  TAX
+  CPX paddle1ytop
+  BNE DrawPaddle1Loop
+DrawPaddle2:
+  LDX paddle2ybot
+DrawPaddle2Loop:
+  TXA
+  STA #$0204, y
+  INY
+  LDA #$31
+  STA $0204, y
+  INY
+  LDA #$00
+  STA $0204, y
+  INY
+  LDA #$F0
+  STA $0204, y
+  INY
+  TXA
+  CLC
+  ADC #$08
+  TAX
+  CPX paddle2ytop
+  BNE DrawPaddle2Loop
+  RTS  
  
 DrawScore:
   LDA $2002
