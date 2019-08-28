@@ -20,7 +20,7 @@
   LEFTWALL       = $04
   PADDLE1X       = $08  ; horizontal position for paddles, doesnt move
   PADDLE2X       = $F0
-  
+
 ;----------------------------------------------------------------
 ; variables
 ;----------------------------------------------------------------
@@ -79,7 +79,7 @@ clrmem:
   STA $0200, x
   INX
   BNE clrmem
-   
+
 vblankwait2:      ; Second wait for vblank, PPU is ready after this
   BIT $2002
   BPL vblankwait2
@@ -126,7 +126,7 @@ LoadPalettesLoop:
 
 ;;:Set starting game state
   LDA #STATEPLAYING
-  STA gamestate           
+  STA gamestate
   LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
   STA $2000
   LDA #%00011110   ; enable sprites, enable background, no clipping on left side
@@ -134,7 +134,7 @@ LoadPalettesLoop:
 
 Forever:
   JMP Forever     ;jump back to Forever, infinite loop, waiting for NMI
-  
+
 NMI:
   LDA #$00
   STA $2003       ; set the low byte (00) of the RAM address
@@ -152,8 +152,8 @@ NMI:
   ;;;all graphics updates done by here, run game engine
   JSR ReadController1  ;;get the current button data for player 1
   JSR ReadController2  ;;get the current button data for player 2
-  
-GameEngine:  
+
+GameEngine:
   LDA gamestate
   CMP #STATETITLE
   BEQ EngineTitle    ;;game is displaying title screen
@@ -163,10 +163,10 @@ GameEngine:
   LDA gamestate
   CMP #STATEPLAYING
   BEQ EnginePlaying   ;;game is playing
-GameEngineDone:  
+GameEngineDone:
   JSR UpdateSprites  ;;set ball/paddle sprites from positions
   RTI             ; return from interrupt
- 
+
 EngineTitle:
   ;;if start button pressed
   ;;  turn screen off
@@ -174,16 +174,16 @@ EngineTitle:
   ;;  set starting paddle/ball position
   ;;  go to Playing State
   ;;  turn screen on
-  JMP GameEngineDone 
- 
+  JMP GameEngineDone
+
 EngineGameOver:
   ;;if start button pressed
   ;;  turn screen off
   ;;  load title screen
   ;;  go to Title State
-  ;;  turn screen on 
+  ;;  turn screen on
   JMP GameEngineDone
- 
+
 EnginePlaying:
 
 MoveBallRight:
@@ -265,7 +265,7 @@ MovePaddleDown:
   ;;  if paddle bottom < bottom wall
   ;;    move paddle top and bottom down
 MovePaddleDownDone:
-  
+
 CheckPaddleCollision:
   ;;if ball x < paddle1x
   ;;  if ball y > paddle y top
@@ -274,7 +274,7 @@ CheckPaddleCollision:
 CheckPaddleCollisionDone:
 
   JMP GameEngineDone
- 
+
 UpdateSprites:
   LDA bally  ;;update all ball sprite info
   STA $0200
@@ -286,7 +286,7 @@ UpdateSprites:
   STA $0203
   ;;update paddle sprites
   RTS
- 
+
 DrawScore:
   LDA $2002
   LDA #$20
@@ -306,20 +306,23 @@ DrawScore:
 ;  ADC #$30           ; add ascii offset
   STA $2007
   RTS
- 
+
 IncrementScore:
 IncOnes:
   LDA scoreOnes      ; load the lowest digit of the number
-  CLC 
+  CLC
   ADC #$01           ; add one
   STA scoreOnes
+  JSR Score_sound
+  CMP #$05
+  BEQ Play_winners
   CMP #$0A           ; check if it overflowed, now equals 10
   BNE IncDone        ; if there was no overflow, all done
 IncTens:
   LDA #$00
   STA scoreOnes      ; wrap digit to 0
   LDA scoreTens      ; load the next digit
-  CLC 
+  CLC
   ADC #$01           ; add one, the carry from previous digit
   STA scoreTens
   CMP #$0A           ; check if it overflowed, now equals 10
@@ -328,7 +331,7 @@ IncHundreds:
   LDA #$00
   STA scoreTens      ; wrap digit to 0
   LDA scoreHundreds  ; load the next digit
-  CLC 
+  CLC
   ADC #$01           ; add one, the carry from previous digit
   STA scoreHundreds
 IncDone:
@@ -346,7 +349,7 @@ ReadController1Loop:
   DEX
   BNE ReadController1Loop
   RTS
-  
+
 ReadController2:
   LDA #$01
   STA $4016
@@ -359,7 +362,248 @@ ReadController2Loop:
   ROL buttons2     ; bit0 <- Carry
   DEX
   BNE ReadController2Loop
-  RTS  
+  RTS
+
+Score_sound:
+SoundScore1:
+  lda #%00000001  ;enable Sq1, Sq2 and Tri channels
+  sta $4015
+  ;Square 1
+  lda #%00111000  ;Duty 00, Volume 8 (half volume)
+  sta $4000
+  lda #$A9        ;$0A9 is a Mi in NTSC mode
+  sta $4002       ;low 8 bits of period
+  lda #$00
+  sta $4003       ;high 3 bits of period
+  JSR StopSound_30p
+SoundScore2:
+  ;Square 2
+  lda #%00000011  ;enable Sq1, Sq2 and Tri channels
+  sta $4015
+  lda #%01110110  ;Duty 01, Volume 6
+  sta $4004
+  lda #$8E        ;$046 is an Sol in NTSC mode
+  sta $4006
+  lda #$00
+  sta $4007
+  JSR StopSound_30p
+SoundScore3:
+  ;Triangle
+  lda #%00000111  ;enable Sq1, Sq2 and Tri channels
+  sta $4015
+  lda #%10000001  ;Triangle channel on
+  sta $4008
+  lda #$3F        ;$01F is a Lá in NTSC mode
+  sta $400A
+  lda #$00
+  sta $400B
+  JSR StopSound_30p
+  RTS
+
+Play_winnersound:
+  JSR Sound1
+  JSR StopSound_30p
+  JSR Sound1
+  JSR StopSound_30p
+  JSR Sound2
+  JSR StopSound_MAX
+  JSR Sound3
+  JSR StopSound_30p
+  JSR Sound3
+  JSR StopSound_30p
+  JSR Sound4
+  JSR StopSound_MAX
+  JSR Sound1
+  JSR StopSound_30p
+  JSR Sound1
+  JSR StopSound_30p
+  JSR Sound2
+  JSR StopSound_MAX
+  JSR Sound3
+  JSR StopSound_30p
+  JSR Sound3
+  JSR StopSound_30p
+  JSR Sound4
+  JSR StopSound_MAX
+
+  RTS
+
+Winner_sound:
+Sound1:
+  lda #%00000111  ;enable Sq1, Sq2 and Tri channels
+  sta $4015
+  ;Square 1
+  lda #%00111000  ;Duty 00, Volume 8 (half volume)
+  sta $4000
+  lda #$7E        ;$7E is a Lá in NTSC mode
+  sta $4002       ;low 8 bits of period
+  lda #$00
+  sta $4003       ;high 3 bits of period
+  ;Square 2
+  lda #%01110110  ;Duty 01, Volume 6
+  sta $4004
+  lda #$5E        ;$5E is an Ré in NTSC mode
+  sta $4006
+  lda #$00
+  sta $4007
+  ;Triangle
+  lda #%10000001  ;Triangle channel on
+  sta $4008
+  lda #$4B        ;$4B is a Solb in NTSC mode
+  sta $400A
+  lda #$00
+  sta $400B
+  JSR StopSound_30p
+  RTS
+Sound2:
+  lda #%00000111  ;enable Sq1, Sq2 and Tri channels
+  sta $4015
+  ;Square 1
+  lda #%00111000  ;Duty 00, Volume 8 (half volume)
+  sta $4000
+  lda #$7E        ;$7E is a Lá in NTSC mode
+  sta $4002       ;low 8 bits of period
+  lda #$00
+  sta $4003       ;high 3 bits of period
+  ;Square 2
+  lda #%01110110  ;Duty 01, Volume 6
+  sta $4004
+  lda #$64        ;$64 is an Réb in NTSC mode
+  sta $4006
+  lda #$00
+  sta $4007
+  ;Triangle
+  lda #%10000001  ;Triangle channel on
+  sta $4008
+  lda #$54        ;$54 is a Mi in NTSC mode
+  sta $400A
+  lda #$00
+  sta $400B
+  JSR StopSound_MAX
+  RTS
+Sound3:
+  lda #%00000111  ;enable Sq1, Sq2 and Tri channels
+  sta $4015
+  ;Square 1
+  lda #%00111000  ;Duty 00, Volume 8 (half volume)
+  sta $4000
+  lda #$8E        ;$8E is a Sol in NTSC mode
+  sta $4002       ;low 8 bits of period
+  lda #$00
+  sta $4003       ;high 3 bits of period
+  ;Square 2
+  lda #%01110110  ;Duty 01, Volume 6
+  sta $4004
+  lda #$D2        ;$D2 is an Dó in NTSC mode
+  sta $4006
+  lda #$00
+  sta $4007
+  ;Triangle
+  lda #%10000001  ;Triangle channel on
+  sta $4008
+  lda #$A9        ;$A9 is a Mi in NTSC mode
+  sta $400A
+  lda #$00
+  sta $400B
+  JSR StopSound_30p
+  RTS
+Sound4:
+  lda #%00000111  ;enable Sq1, Sq2 and Tri channels
+  sta $4015
+  ;Square 1
+  lda #%00111000  ;Duty 00, Volume 8 (half volume)
+  sta $4000
+  lda #$8E        ;$8E is a Sol in NTSC mode
+  sta $4002       ;low 8 bits of period
+  lda #$00
+  sta $4003       ;high 3 bits of period
+  ;Square 2
+  lda #%01110110  ;Duty 01, Volume 6
+  sta $4004
+  lda #$E2        ;$E2 is an Si in NTSC mode
+  sta $4006
+  lda #$00
+  sta $4007
+  ;Triangle
+  lda #%10000001  ;Triangle channel on
+  sta $4008
+  lda #$BD        ;$BD is a Ré in NTSC mode
+  sta $400A
+  lda #$00
+  sta $400B
+  JSR StopSound_MAX
+  RTS
+
+;StopSound_OverMAX:
+;  lda #$04
+;set_loop_over1:
+;  ldy #$FF
+;set_loop_over:
+;  ldx #$FF
+;loop_over:
+;  CPX #$00
+;  DEX
+;  BNE loop_over
+;  CPY #$00
+;  DEY
+;  BNE set_loop_over
+;  SBC #$01
+;  CMP #$01
+  ;BEQ mute_all_channels_over
+;  BNE set_loop_over
+;mute_all_channels_over:
+;  lda #%11111000  ;desable Sq1, Sq2 and Tri channels
+;  sta $4015
+;  RTS
+
+StopSound_MAX:
+  ldy #$FF
+set_loop:
+  ldx #$FF
+loop:
+  DEX
+  CPX #$00
+  BNE loop
+  DEY
+  CPY #$00
+  BNE set_loop
+mute_all_channels:
+  lda #%11111000  ;desable Sq1, Sq2 and Tri channels
+  sta $4015
+  RTS
+
+StopSound_HALF:
+  ldy #$7D
+set_loop_half:
+  ldx #$FF
+loop_half:
+  DEX
+  CPX #$00
+  BNE loop
+  DEY
+  CPY #$00
+  BNE set_loop
+mute_all_channels_half:
+  lda #%11111000  ;desable Sq1, Sq2 and Tri channels
+  sta $4015
+  RTS
+
+StopSound_30p:
+  ldy #$32
+set_loop_30p:
+  ldx #$FF
+loop_30p:
+  DEX
+  CPX #$00
+  BNE loop
+  DEY
+  CPY #$00
+  BNE set_loop
+mute_all_channels_30p:
+  lda #%11111000  ;desable Sq1, Sq2 and Tri channels
+  sta $4015
+  RTS
+
 
   .org $E000
 palette:
@@ -378,7 +622,7 @@ sprites:
 ;----------------------------------------------------------------
 
   .org $FFFA     ;first of the three vectors starts here
-  .dw NMI        ;when an NMI happens (once per frame if enabled) the 
+  .dw NMI        ;when an NMI happens (once per frame if enabled) the
                    ;processor will jump to the label NMI:
   .dw RESET      ;when the processor first turns on or is reset, it will jump
                    ;to the label RESET:
