@@ -18,8 +18,9 @@
   TOPWALL        = $20
   BOTTOMWALL     = $E0
   LEFTWALL       = $04
-  PADDLE1X       = $08  ; horizontal position for paddles, doesnt move
-  PADDLE2X       = $F0
+  PADDLE1X       = $18  ; horizontal position for paddles, doesnt move
+  PADDLE1XADJUST = $20
+  PADDLE2X       = $E0
 
 ;----------------------------------------------------------------
 ; variables
@@ -35,13 +36,19 @@
   ballright     .dsb 1  ; 1 = ball moving right
   ballspeedx    .dsb 1  ; ball horizontal speed per frame
   ballspeedy    .dsb 1  ; ball vertical speed per frame
+  paddlespeedy    .dsb 1
   paddle1ytop   .dsb 1  ; player 1 paddle top vertical position
-  paddle2ybot   .dsb 1  ; player 2 paddle bottom vertical position
+  paddle1ybot   .dsb 1
+  paddle2ytop   .dsb 1  ; player 2 paddle bottom vertical position
+  paddle2ybot   .dsb 1
   buttons1      .dsb 1  ; player 1 gamepad buttons, one bit per button
   buttons2      .dsb 1  ; player 2 gamepad buttons, one bit per button
   scoreOnes     .dsb 1  ; byte for each digit in the decimal score
   scoreTens     .dsb 1
   scoreHundreds .dsb 1
+  scorePlayer1  .dsb 1
+  scorePlayer2  .dsb 1
+  contadorloop  .dsb 1  ; variavel para loop
   .ende
 
 ;----------------------------------------------------------------
@@ -104,6 +111,7 @@ LoadPalettesLoop:
                         ; if compare was equal to 32, keep going down
 
 ;;;Set some initial ball stats
+InitialValues:
   LDA #$01
   STA balldown
   STA ballright
@@ -117,6 +125,14 @@ LoadPalettesLoop:
   LDA #$02
   STA ballspeedx
   STA ballspeedy
+  STA paddlespeedy
+
+  LDA #$70
+  STA paddle1ybot
+  STA paddle2ybot
+  LDA #$90
+  STA paddle1ytop
+  STA paddle2ytop
 
 ;;;Set initial score value
   LDA #$00
@@ -196,12 +212,43 @@ MoveBallRight:
   LDA ballx
   CMP #RIGHTWALL
   BCC MoveBallRightDone      ;;if ball x < right wall, still on screen, skip next section
-  LDA #$00
-  STA ballright
-  LDA #$01
-  STA ballleft         ;;bounce, ball now moving left
+  ;LDA #$00
+  ;STA ballright
+  ;LDA #$01
+  ;STA ballleft         ;;bounce, ball now moving left
   ;;in real game, give point to player 1, reset ball
+  LDA #$00
+  STA balldown
+  STA ballright
+  STA ballup
+  STA ballleft
+  LDX scorePlayer1
+  INX
+  TXA
+  STA scorePlayer1
   jsr IncrementScore
+  LDA #$01
+  STA balldown
+  STA ballright
+  LDA #$00
+  STA ballup
+  STA ballleft
+  LDA #$50
+  STA bally
+  LDA #$80
+  STA ballx
+  LDA #$02
+  STA ballspeedx
+  STA ballspeedy
+  STA paddlespeedy
+
+  LDA #$70
+  STA paddle1ybot
+  STA paddle2ybot
+  LDA #$90
+  STA paddle1ytop
+  STA paddle2ytop
+
 MoveBallRightDone:
 
 MoveBallLeft:
@@ -214,12 +261,37 @@ MoveBallLeft:
   LDA ballx
   CMP #LEFTWALL
   BCS MoveBallLeftDone      ;;if ball x > left wall, still on screen, skip next section
-  LDA #$01
-  STA ballright
-  LDA #$00
-  STA ballleft         ;;bounce, ball now moving right
+  ;LDA #$01
+  ;STA ballright
+  ;LDA #$00
+  ;STA ballleft         ;;bounce, ball now moving right
   ;;in real game, give point to player 2, reset ball
+  LDX scorePlayer2
+  INX
+  TXA
+  STA scorePlayer2
   jsr IncrementScore
+  LDA #$01
+  STA ballup
+  STA ballleft
+  LDA #$00
+  STA balldown
+  STA ballright
+  LDA #$50
+  STA bally
+  LDA #$80
+  STA ballx
+  LDA #$02
+  STA ballspeedx
+  STA ballspeedy
+  STA paddlespeedy
+
+  LDA #$70
+  STA paddle1ybot
+  STA paddle2ybot
+  LDA #$90
+  STA paddle1ytop
+  STA paddle2ytop
 MoveBallLeftDone:
 
 MoveBallUp:
@@ -254,23 +326,121 @@ MoveBallDown:
   STA ballup         ;;bounce, ball now moving down
 MoveBallDownDone:
 
-MovePaddleUp:
+MovePaddle1Up:
   ;;if up button pressed
   ;;  if paddle top > top wall
   ;;    move paddle top and bottom up
-MovePaddleUpDone:
+  LDA buttons1
+  AND #%00001000
+  TAX
+  CPX #$00
+  BEQ MovePaddle1UpDone
+  LDA paddle1ybot
+  CMP #TOPWALL
+  BCC MovePaddle1UpDone
+  LDA paddle1ybot
+  SBC paddlespeedy
+  STA paddle1ybot
+  LDA paddle1ytop
+  SBC paddlespeedy
+  STA paddle1ytop
+MovePaddle1UpDone:
+MovePaddle2Up:
+  LDA buttons2
+  AND #%00001000
+  TAX
+  CPX #$00
+  BEQ MovePaddle2UpDone
+  LDA paddle2ybot
+  CMP #TOPWALL
+  BCC MovePaddle2UpDone
+  LDA paddle2ybot
+  SBC paddlespeedy
+  STA paddle2ybot
+  LDA paddle2ytop
+  SBC paddlespeedy
+  STA paddle2ytop
+MovePaddle2UpDone:
 
-MovePaddleDown:
+MovePaddle1Down:
   ;;if down button pressed
   ;;  if paddle bottom < bottom wall
-  ;;    move paddle top and bottom down
-MovePaddleDownDone:
+  ;;    move paddle top and LDA #$10
+ ; STA paddle2ybot
+  ;LDA #$30
+  ;STA paddle2ytopbottom down
+
+  LDA buttons1
+  AND #%00000100
+  TAX
+  CPX #$00
+  BEQ MovePaddle1DownDone
+  LDA paddle1ytop
+  CMP #BOTTOMWALL
+  BCS MovePaddle1DownDone
+  LDA paddle1ybot
+  CLC
+  ADC paddlespeedy
+  STA paddle1ybot
+  LDA paddle1ytop
+  CLC
+  ADC paddlespeedy
+  STA paddle1ytop
+MovePaddle1DownDone:
+MovePaddle2Down:
+  LDA buttons2
+  AND #%00000100
+  TAX
+  CPX #$00
+  BEQ MovePaddle2DownDone
+  LDA paddle2ytop
+  CMP #BOTTOMWALL
+  BCS MovePaddle2DownDone
+  LDA paddle2ybot
+  CLC
+  ADC paddlespeedy
+  STA paddle2ybot
+  LDA paddle2ytop
+  CLC
+  ADC paddlespeedy
+  STA paddle2ytop
+MovePaddle2DownDone:
 
 CheckPaddleCollision:
   ;;if ball x < paddle1x
   ;;  if ball y > paddle y top
   ;;    if ball y < paddle y bottom
   ;;      bounce, ball now moving left
+Paddle1Collision:
+  LDA ballx
+  CMP #PADDLE1XADJUST
+  BCS Paddle1CollisionDone
+  LDA bally
+  CMP paddle1ybot
+  BCC Paddle1CollisionDone
+  LDA bally
+  CMP paddle1ytop
+  BCS Paddle1CollisionDone
+  LDA #$01
+  STA ballright
+  LDA #$00
+  STA ballleft
+Paddle1CollisionDone:
+Paddle2Collision:
+  LDA ballx
+  CMP #PADDLE2X
+  BCC Paddle2CollisionDone
+  LDA bally
+  CMP paddle2ybot
+  BCC Paddle2CollisionDone
+  LDA bally
+  CMP paddle2ytop
+  BCS Paddle2CollisionDone
+  LDA #$00
+  STA ballright
+  LDA #$01
+  STA ballleft
+Paddle2CollisionDone:
 CheckPaddleCollisionDone:
 
   JMP GameEngineDone
@@ -285,6 +455,49 @@ UpdateSprites:
   LDA ballx
   STA $0203
   ;;update paddle sprites
+DrawPaddle1:
+  LDX paddle1ybot
+  LDY #$00
+DrawPaddle1Loop:
+  TXA
+  STA #$0204, y
+  INY
+  LDA #$31
+  STA $0204, y
+  INY
+  LDA #$00
+  STA $0204, y
+  INY
+  LDA #PADDLE1X
+  STA $0204, y
+  INY
+  TXA
+  CLC
+  ADC #$08
+  TAX
+  CPX paddle1ytop
+  BNE DrawPaddle1Loop
+DrawPaddle2:
+  LDX paddle2ybot
+DrawPaddle2Loop:
+  TXA
+  STA #$0204, y
+  INY
+  LDA #$31
+  STA $0204, y
+  INY
+  LDA #$00
+  STA $0204, y
+  INY
+  LDA #PADDLE2X
+  STA $0204, y
+  INY
+  TXA
+  CLC
+  ADC #$08
+  TAX
+  CPX paddle2ytop
+  BNE DrawPaddle2Loop
   RTS
 
 DrawScore:
@@ -313,9 +526,9 @@ IncOnes:
   CLC
   ADC #$01           ; add one
   STA scoreOnes
-  JSR Score_sound
   CMP #$05
   BEQ Play_winners
+  JSR Score_sound
   CMP #$0A           ; check if it overflowed, now equals 10
   BNE IncDone        ; if there was no overflow, all done
 IncTens:
@@ -364,6 +577,10 @@ ReadController2Loop:
   BNE ReadController2Loop
   RTS
 
+Play_winners:
+  JSR Play_winnersound
+  RTS
+
 Score_sound:
 SoundScore1:
   lda #%00000001  ;enable Sq1, Sq2 and Tri channels
@@ -375,7 +592,7 @@ SoundScore1:
   sta $4002       ;low 8 bits of period
   lda #$00
   sta $4003       ;high 3 bits of period
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
 SoundScore2:
   ;Square 2
   lda #%00000011  ;enable Sq1, Sq2 and Tri channels
@@ -386,7 +603,7 @@ SoundScore2:
   sta $4006
   lda #$00
   sta $4007
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
 SoundScore3:
   ;Triangle
   lda #%00000111  ;enable Sq1, Sq2 and Tri channels
@@ -397,34 +614,34 @@ SoundScore3:
   sta $400A
   lda #$00
   sta $400B
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
   RTS
 
 Play_winnersound:
   JSR Sound1
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
   JSR Sound1
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
   JSR Sound2
-  JSR StopSound_MAX
+  JSR Start_fake_loop
   JSR Sound3
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
   JSR Sound3
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
   JSR Sound4
-  JSR StopSound_MAX
+  JSR Start_fake_loop
   JSR Sound1
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
   JSR Sound1
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
   JSR Sound2
-  JSR StopSound_MAX
+  JSR Start_fake_loop
   JSR Sound3
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
   JSR Sound3
-  JSR StopSound_30p
+  JSR Start_fake_loop_30p
   JSR Sound4
-  JSR StopSound_MAX
+  JSR Start_fake_loop
 
   RTS
 
@@ -453,7 +670,7 @@ Sound1:
   sta $400A
   lda #$00
   sta $400B
-  JSR StopSound_30p
+  JSR Start_fake_loop_half
   RTS
 Sound2:
   lda #%00000111  ;enable Sq1, Sq2 and Tri channels
@@ -479,7 +696,8 @@ Sound2:
   sta $400A
   lda #$00
   sta $400B
-  JSR StopSound_MAX
+  JSR fake_loop
+  JSR Start_fake_loop
   RTS
 Sound3:
   lda #%00000111  ;enable Sq1, Sq2 and Tri channels
@@ -505,7 +723,7 @@ Sound3:
   sta $400A
   lda #$00
   sta $400B
-  JSR StopSound_30p
+  JSR Start_fake_loop_half
   RTS
 Sound4:
   lda #%00000111  ;enable Sq1, Sq2 and Tri channels
@@ -531,79 +749,93 @@ Sound4:
   sta $400A
   lda #$00
   sta $400B
-  JSR StopSound_MAX
+  JSR fake_loop
+  JSR Start_fake_loop
   RTS
 
-;StopSound_OverMAX:
-;  lda #$04
-;set_loop_over1:
-;  ldy #$FF
-;set_loop_over:
-;  ldx #$FF
-;loop_over:
-;  CPX #$00
-;  DEX
-;  BNE loop_over
-;  CPY #$00
-;  DEY
-;  BNE set_loop_over
-;  SBC #$01
-;  CMP #$01
-  ;BEQ mute_all_channels_over
-;  BNE set_loop_over
-;mute_all_channels_over:
-;  lda #%11111000  ;desable Sq1, Sq2 and Tri channels
-;  sta $4015
-;  RTS
+Start_fake_loop:      ; novo loop sem usar o regs Y
+  ldx #$00
+  STX contadorloop
+Call_fake_loop:
+  JSR set_loop_fake
+  ldx contadorloop
+  INX
+  STX contadorloop
+  CPX #$FF
+  BNE Call_fake_loop
+  JSR mute_all_channels
+  RTS
+set_loop_fake:
+  ldx #$00
+loop_fake:
+  INX
+  CPX #$FF
+  BNE loop_fake
+  RTS
 
-StopSound_MAX:
-  ldy #$FF
-set_loop:
-  ldx #$FF
-loop:
-  DEX
-  CPX #$00
-  BNE loop
-  DEY
-  CPY #$00
-  BNE set_loop
+Start_fake_loop_half:      ; novo loop sem usar o regs Y
+  ldx #$00
+  STX contadorloop
+Call_fake_loop_half:
+  JSR set_loop_fake_half
+  ldx contadorloop
+  INX
+  STX contadorloop
+  CPX #$78
+  BNE Call_fake_loop_half
+  JSR mute_all_channels
+  RTS
+set_loop_fake_half:
+  ldx #$00
+loop_fake_half:
+  INX
+  CPX #$FF
+  BNE loop_fake_half
+  RTS
+
+Start_fake_loop_30p:      ; novo loop sem usar o regs Y
+  ldx #$00
+  STX contadorloop
+Call_fake_loop_30p:
+  JSR set_loop_fake_30p
+  ldx contadorloop
+  INX
+  STX contadorloop
+  CPX #$32
+  BNE Call_fake_loop_30p
+  JSR mute_all_channels
+  RTS
+set_loop_fake_30p:
+  ldx #$00
+loop_fake_30p:
+  INX
+  CPX #$FF
+  BNE loop_fake_30p
+  RTS
+
+fake_loop:      ; novo loop sem usar o regs Y
+  ldx #$00
+  STX contadorloop
+Ca_fake_loop:
+  JSR s_loop_fake
+  ldx contadorloop
+  INX
+  STX contadorloop
+  CPX #$FF
+  BNE Ca_fake_loop
+  RTS
+s_loop_fake:
+  ldx #$00
+lo_fake:
+  INX
+  CPX #$FF
+  BNE lo_fake
+  RTS
+
 mute_all_channels:
   lda #%11111000  ;desable Sq1, Sq2 and Tri channels
   sta $4015
   RTS
-
-StopSound_HALF:
-  ldy #$7D
-set_loop_half:
-  ldx #$FF
-loop_half:
-  DEX
-  CPX #$00
-  BNE loop
-  DEY
-  CPY #$00
-  BNE set_loop
-mute_all_channels_half:
-  lda #%11111000  ;desable Sq1, Sq2 and Tri channels
-  sta $4015
-  RTS
-
-StopSound_30p:
-  ldy #$32
-set_loop_30p:
-  ldx #$FF
-loop_30p:
-  DEX
-  CPX #$00
-  BNE loop
-  DEY
-  CPY #$00
-  BNE set_loop
-mute_all_channels_30p:
-  lda #%11111000  ;desable Sq1, Sq2 and Tri channels
-  sta $4015
-  RTS
-
 
   .org $E000
 palette:
