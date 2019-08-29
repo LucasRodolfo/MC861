@@ -344,7 +344,7 @@ MovePaddle1Up:
   LDA paddle1ytop
   SBC paddlespeedy
   STA paddle1ytop
-  JSR Paddle_sound
+
 MovePaddle1UpDone:
 MovePaddle2Up:
   LDA buttons2
@@ -361,7 +361,6 @@ MovePaddle2Up:
   LDA paddle2ytop
   SBC paddlespeedy
   STA paddle2ytop
-  JSR Paddle_sound
 MovePaddle2UpDone:
 
 MovePaddle1Down:
@@ -427,6 +426,7 @@ Paddle1Collision:
   STA ballright
   LDA #$00
   STA ballleft
+  JSR Paddle_sound
 Paddle1CollisionDone:
 Paddle2Collision:
   LDA ballx
@@ -442,6 +442,7 @@ Paddle2Collision:
   STA ballright
   LDA #$01
   STA ballleft
+  JSR Paddle_sound
 Paddle2CollisionDone:
 CheckPaddleCollisionDone:
 
