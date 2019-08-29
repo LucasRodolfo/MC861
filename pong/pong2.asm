@@ -344,6 +344,7 @@ MovePaddle1Up:
   LDA paddle1ytop
   SBC paddlespeedy
   STA paddle1ytop
+  JSR Paddle_sound
 MovePaddle1UpDone:
 MovePaddle2Up:
   LDA buttons2
@@ -360,6 +361,7 @@ MovePaddle2Up:
   LDA paddle2ytop
   SBC paddlespeedy
   STA paddle2ytop
+  JSR Paddle_sound
 MovePaddle2UpDone:
 
 MovePaddle1Down:
@@ -579,6 +581,17 @@ ReadController2Loop:
 
 Play_winners:
   JSR Play_winnersound
+  RTS
+
+Paddle_sound:
+  lda #%00000100 ;enable Triangle channel
+  sta $4015
+  lda #%00000001 ;disable counters, non-zero Value turns channel on
+  sta $4008
+  lda #$42   ;a period of $042 plays a G# in NTSC mode.
+  sta $400A
+  lda #%00011000
+  sta $400B
   RTS
 
 Score_sound:
