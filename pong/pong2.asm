@@ -49,6 +49,7 @@
   scorePlayer1  .dsb 1
   scorePlayer2  .dsb 1
   contadorloop  .dsb 1  ; variavel para loop
+  waitNextRound .dsb 1
   .ende
 
 ;----------------------------------------------------------------
@@ -118,6 +119,7 @@ InitialValues:
   LDA #$00
   STA ballup
   STA ballleft
+  STA waitNextRound
   LDA #$50
   STA bally
   LDA #$80
@@ -202,6 +204,11 @@ EngineGameOver:
 
 EnginePlaying:
 
+WaitingNextRound:
+  LDA waitNextRound
+  CMP #$00
+  BNE GameEngineDone
+
 MoveBallRight:
   LDA ballright
   BEQ MoveBallRightDone   ;;if ballright=0, skip this section
@@ -222,11 +229,17 @@ MoveBallRight:
   STA ballright
   STA ballup
   STA ballleft
+  LDA #$01
+  STA waitNextRound
   LDX scorePlayer1
   INX
   TXA
   STA scorePlayer1
   jsr IncrementScore
+  JSR fake_loop
+  JSR fake_loop
+  JSR fake_loop
+
   LDA #$01
   STA balldown
   STA ballright
@@ -241,13 +254,14 @@ MoveBallRight:
   STA ballspeedx
   STA ballspeedy
   STA paddlespeedy
-
   LDA #$70
   STA paddle1ybot
   STA paddle2ybot
   LDA #$90
   STA paddle1ytop
   STA paddle2ytop
+  LDA #$00
+  STA waitNextRound
 
 MoveBallRightDone:
 
@@ -266,11 +280,22 @@ MoveBallLeft:
   ;LDA #$00
   ;STA ballleft         ;;bounce, ball now moving right
   ;;in real game, give point to player 2, reset ball
+  LDA #$00
+  STA balldown
+  STA ballright
+  STA ballup
+  STA ballleft
+  LDA #$01
+  STA waitNextRound
   LDX scorePlayer2
   INX
   TXA
   STA scorePlayer2
   jsr IncrementScore
+  JSR fake_loop
+  JSR fake_loop
+  JSR fake_loop
+
   LDA #$01
   STA ballup
   STA ballleft
@@ -285,13 +310,14 @@ MoveBallLeft:
   STA ballspeedx
   STA ballspeedy
   STA paddlespeedy
-
   LDA #$70
   STA paddle1ybot
   STA paddle2ybot
   LDA #$90
   STA paddle1ytop
   STA paddle2ytop
+  LDA #$00
+  STA waitNextRound
 MoveBallLeftDone:
 
 MoveBallUp:
@@ -582,6 +608,8 @@ ReadController2Loop:
 
 Play_winners:
   JSR Play_winnersound
+  LDA #$02
+  STA gamestate
   RTS
 
 Paddle_sound:
