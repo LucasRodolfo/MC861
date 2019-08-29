@@ -127,7 +127,7 @@ InitialValues:
   STA bally
   LDA #$70
   STA ballx
-  LDA #$01
+  LDA #$02
   STA ballspeedx
   STA ballspeedy
   STA paddlespeedy
@@ -256,7 +256,7 @@ MoveBallRight:
   STA bally
   LDA #$80
   STA ballx
-  LDA #$01
+  LDA #$02
   STA ballspeedx
   STA ballspeedy
   STA paddlespeedy
@@ -315,7 +315,7 @@ MoveBallLeft:
   STA bally
   LDA #$80
   STA ballx
-  LDA #$01
+  LDA #$02
   STA ballspeedx
   STA ballspeedy
   STA paddlespeedy
@@ -464,24 +464,37 @@ Paddle1Collision:
   BCS Paddle1CollisionDone
   LDA bally
   CMP paddle1ybotadjust
-  BCC Paddle1YColission
+  BCC Paddle1YColissionBot
   LDA bally
   CMP paddle1ytop
-  BCS Paddle1CollisionDone
+  BCS Paddle1YColissionTop
   LDA #$01
   STA ballright
   LDA #$00
   STA ballleft
   JSR Paddle_sound
-Paddle1YColission:
+  JMP Paddle1CollisionDone
+Paddle1YColissionBot:
   LDA paddle1ybotadjust
-  SBC #$02
+  SBC #$01
   CMP bally
   BCS Paddle1CollisionDone
   LDA #$00
   STA balldown
   LDA #$01
   STA ballup
+  JMP Paddle1CollisionDone
+Paddle1YColissionTop:
+  LDA paddle1ytop
+  CLC
+  ADC #$01
+  CMP bally
+  BCC Paddle1CollisionDone
+  LDA #$01
+  STA balldown
+  LDA #$00
+  STA ballup
+  JMP Paddle1CollisionDone
 Paddle1CollisionDone:
 Paddle2Collision:
   LDA ballx
@@ -489,15 +502,37 @@ Paddle2Collision:
   BCC Paddle2CollisionDone
   LDA bally
   CMP paddle2ybotadjust
-  BCC Paddle2CollisionDone
+  BCC Paddle2YColissionBot
   LDA bally
   CMP paddle2ytop
-  BCS Paddle2CollisionDone
+  BCS Paddle2YColissionTop
   LDA #$00
   STA ballright
   LDA #$01
   STA ballleft
   JSR Paddle_sound
+  JMP Paddle2CollisionDone
+Paddle2YColissionBot:
+  LDA paddle2ybotadjust
+  SBC #$01
+  CMP bally
+  BCS Paddle2CollisionDone
+  LDA #$00
+  STA balldown
+  LDA #$01
+  STA ballup
+  JMP Paddle2CollisionDone
+Paddle2YColissionTop:
+  LDA paddle2ytop
+  CLC
+  ADC #$01
+  CMP bally
+  BCC Paddle2CollisionDone
+  LDA #$01
+  STA balldown
+  LDA #$00
+  STA ballup
+  JMP Paddle2CollisionDone
 Paddle2CollisionDone:
 CheckPaddleCollisionDone:
 
