@@ -464,7 +464,7 @@ Paddle1Collision:
   BCS Paddle1CollisionDone
   LDA bally
   CMP paddle1ybotadjust
-  BCC Paddle1CollisionDone
+  BCC Paddle1YColission
   LDA bally
   CMP paddle1ytop
   BCS Paddle1CollisionDone
@@ -473,6 +473,15 @@ Paddle1Collision:
   LDA #$00
   STA ballleft
   JSR Paddle_sound
+Paddle1YColission:
+  LDA paddle1ybotadjust
+  SBC #$02
+  CMP bally
+  BCS Paddle1CollisionDone
+  LDA #$00
+  STA balldown
+  LDA #$01
+  STA ballup
 Paddle1CollisionDone:
 Paddle2Collision:
   LDA ballx
