@@ -46,6 +46,8 @@
   scoreOnes     .dsb 1  ; byte for each digit in the decimal score
   scoreTens     .dsb 1
   scoreHundreds .dsb 1
+  scorePlayer1  .dsb 1
+  scorePlayer2  .dsb 1
   .ende
 
 ;----------------------------------------------------------------
@@ -108,6 +110,7 @@ LoadPalettesLoop:
                         ; if compare was equal to 32, keep going down
 
 ;;;Set some initial ball stats
+InitialValues:
   LDA #$01
   STA balldown
   STA ballright
@@ -208,12 +211,43 @@ MoveBallRight:
   LDA ballx
   CMP #RIGHTWALL
   BCC MoveBallRightDone      ;;if ball x < right wall, still on screen, skip next section
-  LDA #$00
-  STA ballright
-  LDA #$01
-  STA ballleft         ;;bounce, ball now moving left
+  ;LDA #$00
+  ;STA ballright
+  ;LDA #$01
+  ;STA ballleft         ;;bounce, ball now moving left
   ;;in real game, give point to player 1, reset ball
+  LDA #$00
+  STA balldown
+  STA ballright
+  STA ballup
+  STA ballleft
+  LDX scorePlayer1
+  INX
+  TXA
+  STA scorePlayer1
   jsr IncrementScore
+  LDA #$01
+  STA balldown
+  STA ballright
+  LDA #$00
+  STA ballup
+  STA ballleft
+  LDA #$50
+  STA bally
+  LDA #$80
+  STA ballx
+  LDA #$02
+  STA ballspeedx
+  STA ballspeedy
+  STA paddlespeedy
+
+  LDA #$70
+  STA paddle1ybot
+  STA paddle2ybot
+  LDA #$90
+  STA paddle1ytop
+  STA paddle2ytop
+
 MoveBallRightDone:
 
 MoveBallLeft:
@@ -226,12 +260,37 @@ MoveBallLeft:
   LDA ballx
   CMP #LEFTWALL
   BCS MoveBallLeftDone      ;;if ball x > left wall, still on screen, skip next section
-  LDA #$01
-  STA ballright
-  LDA #$00
-  STA ballleft         ;;bounce, ball now moving right
+  ;LDA #$01
+  ;STA ballright
+  ;LDA #$00
+  ;STA ballleft         ;;bounce, ball now moving right
   ;;in real game, give point to player 2, reset ball
+  LDX scorePlayer2
+  INX
+  TXA
+  STA scorePlayer2
   jsr IncrementScore
+  LDA #$01
+  STA ballup
+  STA ballleft
+  LDA #$00
+  STA balldown
+  STA ballright
+  LDA #$50
+  STA bally
+  LDA #$80
+  STA ballx
+  LDA #$02
+  STA ballspeedx
+  STA ballspeedy
+  STA paddlespeedy
+
+  LDA #$70
+  STA paddle1ybot
+  STA paddle2ybot
+  LDA #$90
+  STA paddle1ytop
+  STA paddle2ytop
 MoveBallLeftDone:
 
 MoveBallUp:
