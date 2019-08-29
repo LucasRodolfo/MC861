@@ -18,8 +18,9 @@
   TOPWALL        = $20
   BOTTOMWALL     = $E0
   LEFTWALL       = $04
-; PADDLE1X       = $08  ; horizontal position for paddles, doesnt move
-; PADDLE2X       = $F0
+  PADDLE1X       = $18  ; horizontal position for paddles, doesnt move
+  PADDLE1XADJUST = $20
+  PADDLE2X       = $E0
   
 ;----------------------------------------------------------------
 ; variables
@@ -351,6 +352,36 @@ CheckPaddleCollision:
   ;;  if ball y > paddle y top
   ;;    if ball y < paddle y bottom
   ;;      bounce, ball now moving left
+Paddle1Collision:
+  LDA ballx
+  CMP #PADDLE1XADJUST
+  BCS Paddle1CollisionDone  
+  LDA bally
+  CMP paddle1ybot
+  BCC Paddle1CollisionDone
+  LDA bally
+  CMP paddle1ytop
+  BCS Paddle1CollisionDone
+  LDA #$01
+  STA ballright
+  LDA #$00
+  STA ballleft
+Paddle1CollisionDone:
+Paddle2Collision:
+  LDA ballx
+  CMP #PADDLE2X
+  BCC Paddle2CollisionDone  
+  LDA bally
+  CMP paddle2ybot
+  BCC Paddle2CollisionDone
+  LDA bally
+  CMP paddle2ytop
+  BCS Paddle2CollisionDone
+  LDA #$00
+  STA ballright
+  LDA #$01
+  STA ballleft
+Paddle2CollisionDone:
 CheckPaddleCollisionDone:
 
   JMP GameEngineDone
@@ -378,7 +409,7 @@ DrawPaddle1Loop:
   LDA #$00
   STA $0204, y
   INY
-  LDA #$08
+  LDA #PADDLE1X
   STA $0204, y
   INY
   TXA
@@ -399,7 +430,7 @@ DrawPaddle2Loop:
   LDA #$00
   STA $0204, y
   INY
-  LDA #$F0
+  LDA #PADDLE2X
   STA $0204, y
   INY
   TXA
