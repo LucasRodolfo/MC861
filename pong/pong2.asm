@@ -111,6 +111,81 @@ LoadPalettesLoop:
   BNE LoadPalettesLoop  ; Branch to LoadPalettesLoop if compare was Not Equal to zero
                         ; if compare was equal to 32, keep going down
 
+LoadBackground:
+  LDA $2002             ; read PPU status to reset the high/low latch
+  LDA #$20
+  STA $2006             ; write the high byte of $2000 address
+  LDA #$00
+  STA $2006             ; write the low byte of $2000 address
+  LDX #$00              ; start out at 0
+LoadBackgroundLoop:
+  LDA background, x     ; load data from address (background + the value in x)
+  STA $2007             ; write to PPU
+  INX                   ; X = X + 1
+  CPX #$A0              ; Compare X to hex $80, decimal 128 - copying 128 bytes
+  BNE LoadBackgroundLoop  ; Branch to LoadBackgroundLoop if compare was Not Equal to zero
+                        ; if compare was equal to 128, keep going down
+
+LoadBackground5To9:
+  LDX #$00
+LoadBackgroundLoop5To9:
+  LDA background5To9, x
+  STA $2007
+  INX
+  CPX #$A0
+  BNE LoadBackgroundLoop5To9
+
+LoadBackground10To14:
+  LDX #$00
+LoadBackgroundLoop10To14:
+  LDA background10To14, x
+  STA $2007
+  INX
+  CPX #$A0
+  BNE LoadBackgroundLoop10To14
+
+LoadBackground15To19:
+  LDX #$00
+LoadBackgroundLoop15To19:
+  LDA background15To19, x
+  STA $2007
+  INX
+  CPX #$A0
+  BNE LoadBackgroundLoop15To19
+
+LoadBackground20To24:
+  LDX #$00
+LoadBackgroundLoop20To24:
+  LDA background20To24, x
+  STA $2007
+  INX
+  CPX #$A0
+  BNE LoadBackgroundLoop20To24
+
+LoadBackground25To29:
+  LDX #$00
+LoadBackgroundLoop25To29:
+  LDA background25To29, x
+  STA $2007
+  INX
+  CPX #$A0
+  BNE LoadBackgroundLoop25To29
+
+LoadAttribute:
+  LDA $2002             ; read PPU status to reset the high/low latch
+  LDA #$23
+  STA $2006             ; write the high byte of $23C0 address
+  LDA #$C0
+  STA $2006             ; write the low byte of $23C0 address
+  LDX #$00              ; start out at 0
+LoadAttributeLoop:
+  LDA attribute, x      ; load data from address (attribute + the value in x)
+  STA $2007             ; write to PPU
+  INX                   ; X = X + 1
+  CPX #$40              ; Compare X to hex $08, decimal 8 - copying 8 bytes
+  BNE LoadAttributeLoop  ; Branch to LoadAttributeLoop if compare was Not Equal to zero
+                        ; if compare was equal to 128, keep going down
+
 ;;;Set some initial ball stats
 InitialValues:
   LDA #$01
@@ -291,7 +366,7 @@ MoveBallLeft:
   INX
   TXA
   STA scorePlayer2
-  jsr IncrementScore
+  jsr IncrementScore2
   JSR fake_loop
   JSR fake_loop
   JSR fake_loop
@@ -477,7 +552,7 @@ CheckPaddleCollisionDone:
 UpdateSprites:
   LDA bally  ;;update all ball sprite info
   STA $0200
-  LDA #$30
+  LDA #$75
   STA $0201
   LDA #$00
   STA $0202
@@ -535,26 +610,41 @@ DrawScore:
   STA $2006
   LDA #$20
   STA $2006          ; start drawing the score at PPU $2020
-  LDA scoreHundreds  ; get first digit
-;  CLC
-;  ADC #$30           ; add ascii offset  (this is UNUSED because the tiles for digits start at 0)
+  LDX #$00
+DrawPlayerOneString:
+  LDA playerOneString, x     ; load data from address (background + the value in x)
+  STA $2007             ; write to PPU
+  INX                   ; X = X + 1
+  CPX #$05              ; Compare X to hex $80, decimal 128 - copying 128 bytes
+  BNE DrawPlayerOneString
+
+  LDA scorePlayer1      ; last digit
+  STA $2007
+
+  LDX #$00
+DrawPlaceholder:
+  LDA placeholder, x     ; load data from address (background + the value in x)
+  STA $2007             ; write to PPU
+  INX                   ; X = X + 1
+  CPX #$13              ; Compare X to hex $80, decimal 128 - copying 128 bytes
+  BNE DrawPlaceholder
+
+  LDX #$00
+DrawPlayerTwoString:
+  LDA playerTwoString, x     ; load data from address (background + the value in x)
+  STA $2007             ; write to PPU
+  INX                   ; X = X + 1
+  CPX #$06              ; Compare X to hex $80, decimal 128 - copying 128 bytes
+  BNE DrawPlayerTwoString
+
+DrawScore2:
+  LDA scorePlayer2  ; get first digit
   STA $2007          ; draw to background
-  LDA scoreTens      ; next digit
-;  CLC
-;  ADC #$30           ; add ascii offset
-  STA $2007
-  LDA scoreOnes      ; last digit
-;  CLC
-;  ADC #$30           ; add ascii offset
-  STA $2007
   RTS
 
 IncrementScore:
 IncOnes:
-  LDA scoreOnes      ; load the lowest digit of the number
-  CLC
-  ADC #$01           ; add one
-  STA scoreOnes
+  LDA scorePlayer1      ; load the lowest digit of the number
   CMP #$05
   BEQ Play_winners
   JSR Score_sound
@@ -577,6 +667,15 @@ IncHundreds:
   ADC #$01           ; add one, the carry from previous digit
   STA scoreHundreds
 IncDone:
+
+IncrementScore2:
+  LDA scorePlayer2      ; load the lowest digit of the number
+  CMP #$05
+  BEQ Play_winners
+  JSR Score_sound
+  CMP #$0A           ; check if it overflowed, now equals 10
+  BNE Inc2Done        ; if there was no overflow, all done
+Inc2Done:
 
 ReadController1:
   LDA #$01
@@ -881,15 +980,138 @@ mute_all_channels:
 
   .org $E000
 palette:
-  .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ;;background palette
+  .db $22,$30,$1A,$0F,  $22,$30,$27,$17,  $2A,$30,$2A,$2A,  $30,$30,$30,$30   ;;background palette
+
   .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ;;sprite palette
 
 sprites:
      ;vert tile attr horiz
-  .db $80, $32, $00, $80   ;sprite 0
-  .db $80, $33, $00, $88   ;sprite 1
-  .db $88, $34, $00, $80   ;sprite 2
-  .db $88, $35, $00, $88   ;sprite 3
+  .db $80, $31, $00, $80   ;sprite 0
+  .db $80, $31, $00, $88   ;sprite 1
+  .db $88, $31, $00, $80   ;sprite 2
+  .db $88, $31, $00, $88   ;sprite 3
+
+playerOneString:
+  ;    L    E    F    T
+  .db $15, $0E, $0F, $1D, $24
+
+placeholder:
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+  .db $24,$24, $24
+
+playerTwoString:
+  ;   R     I    G    H    T
+  .db $1B, $12, $10, $11, $1D, $24
+
+background:
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;row 1
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;row 2
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+
+  .db $25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25  ;;row 3
+  .db $25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25  ;;some brick tops
+
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 4
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;brick bottoms
+
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 5
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+
+background5To9:
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 5
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 6
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 7
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 8
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25 ;;row 9
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+
+background10To14:
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 10
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 11
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 12
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 13
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 14
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+
+background15To19:
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25 ;;row 15
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 16
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 17
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 18
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 19
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+
+background20To24:
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 20
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25 ;;row 21
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 25
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25 ;;row 23
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 24
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
+
+background25To29:
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 25
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+  ;;all sky
+
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$25  ;;row 26
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+  ;;all sky
+
+  .db $25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25  ;;row 27
+  .db $25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25,$25
+  ;;all sky
+
+  .db $47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47  ;;row 28
+  .db $47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47,$47
+  ;;all sky
+
+  .db $47,$47,$47,$47,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;row 29
+  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+  ;;all sky
+
+attribute:
+  ;;row 1
+  .db %10101010, %00000010, %01010000, %11111111, %01010101, %01010101, %01010101, %01010101
+
+  ;;row 2
+  .db %10101010, %01010101, %01010000, %11111111, %01010101, %01010101, %01010101, %01010101
+
+  ;;row 3
+  .db %10101010, %01010101, %01010000, %11111111, %01010101, %01010101, %01010101, %01010101
+
+  ;;row 4
+  .db %10101010, %01010101, %01010000, %11111111, %01010101, %01010101, %01010101, %01010101
+
+  ;;row 5
+  .db %10101010, %01010101, %01010000, %11111111, %01010101, %01010101, %01010101, %01010101
+
+  ;;row 6
+  .db %10101010, %01010101, %01010000, %11111111, %01010101, %01010101, %01010101, %01010101
+
+  ;;row 7
+  .db %10101010, %01010101, %01010000, %11111111, %01010101, %01010101, %01010101, %01010101
+
+  ;;row 8
+  .db %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101
 
 ;----------------------------------------------------------------
 ; interrupt vectors
