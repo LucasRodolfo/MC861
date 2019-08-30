@@ -21,6 +21,7 @@
   PADDLE1X       = $18  ; horizontal position for paddles, doesnt move
   PADDLE1XADJUST = $20
   PADDLE2X       = $E0
+  PADDLE2XADJUST       = $D8
 
 ;----------------------------------------------------------------
 ; variables
@@ -39,8 +40,10 @@
   paddlespeedy    .dsb 1
   paddle1ytop   .dsb 1  ; player 1 paddle top vertical position
   paddle1ybot   .dsb 1
+  paddle1ybotadjust   .dsb 1
   paddle2ytop   .dsb 1  ; player 2 paddle bottom vertical position
   paddle2ybot   .dsb 1
+  paddle2ybotadjust   .dsb 1
   buttons1      .dsb 1  ; player 1 gamepad buttons, one bit per button
   buttons2      .dsb 1  ; player 2 gamepad buttons, one bit per button
   scoreOnes     .dsb 1  ; byte for each digit in the decimal score
@@ -197,7 +200,7 @@ InitialValues:
   STA waitNextRound
   LDA #$50
   STA bally
-  LDA #$80
+  LDA #$70
   STA ballx
   LDA #$02
   STA ballspeedx
@@ -207,6 +210,9 @@ InitialValues:
   LDA #$70
   STA paddle1ybot
   STA paddle2ybot
+  SBC #$08
+  STA paddle1ybotadjust
+  STA paddle2ybotadjust
   LDA #$90
   STA paddle1ytop
   STA paddle2ytop
@@ -323,7 +329,7 @@ MoveBallRight:
   STA ballleft
   LDA #$50
   STA bally
-  LDA #$80
+  LDA #$78
   STA ballx
   LDA #$02
   STA ballspeedx
@@ -332,6 +338,9 @@ MoveBallRight:
   LDA #$70
   STA paddle1ybot
   STA paddle2ybot
+  SBC #$08
+  STA paddle1ybotadjust
+  STA paddle2ybotadjust
   LDA #$90
   STA paddle1ytop
   STA paddle2ytop
@@ -379,7 +388,7 @@ MoveBallLeft:
   STA ballright
   LDA #$50
   STA bally
-  LDA #$80
+  LDA #$78
   STA ballx
   LDA #$02
   STA ballspeedx
@@ -388,6 +397,9 @@ MoveBallLeft:
   LDA #$70
   STA paddle1ybot
   STA paddle2ybot
+  SBC #$08
+  STA paddle1ybotadjust
+  STA paddle2ybotadjust
   LDA #$90
   STA paddle1ytop
   STA paddle2ytop
@@ -442,6 +454,8 @@ MovePaddle1Up:
   LDA paddle1ybot
   SBC paddlespeedy
   STA paddle1ybot
+  SBC #$08
+  STA paddle1ybotadjust
   LDA paddle1ytop
   SBC paddlespeedy
   STA paddle1ytop
@@ -459,6 +473,8 @@ MovePaddle2Up:
   LDA paddle2ybot
   SBC paddlespeedy
   STA paddle2ybot
+  SBC #$08
+  STA paddle2ybotadjust
   LDA paddle2ytop
   SBC paddlespeedy
   STA paddle2ytop
@@ -484,6 +500,8 @@ MovePaddle1Down:
   CLC
   ADC paddlespeedy
   STA paddle1ybot
+  SBC #$08
+  STA paddle1ybotadjust
   LDA paddle1ytop
   CLC
   ADC paddlespeedy
@@ -502,6 +520,8 @@ MovePaddle2Down:
   CLC
   ADC paddlespeedy
   STA paddle2ybot
+  SBC #$08
+  STA paddle2ybotadjust
   LDA paddle2ytop
   CLC
   ADC paddlespeedy
@@ -518,32 +538,76 @@ Paddle1Collision:
   CMP #PADDLE1XADJUST
   BCS Paddle1CollisionDone
   LDA bally
-  CMP paddle1ybot
-  BCC Paddle1CollisionDone
+  CMP paddle1ybotadjust
+  BCC Paddle1YColissionBot
   LDA bally
   CMP paddle1ytop
-  BCS Paddle1CollisionDone
+  BCS Paddle1YColissionTop
   LDA #$01
   STA ballright
   LDA #$00
   STA ballleft
   JSR Paddle_sound
+  JMP Paddle1CollisionDone
+Paddle1YColissionBot:
+  LDA paddle1ybotadjust
+  SBC #$02
+  CMP bally
+  BCS Paddle1CollisionDone
+  LDA #$00
+  STA balldown
+  LDA #$01
+  STA ballup
+  JMP Paddle1CollisionDone
+Paddle1YColissionTop:
+  LDA paddle1ytop
+  CLC
+  ADC #$02
+  CMP bally
+  BCC Paddle1CollisionDone
+  LDA #$01
+  STA balldown
+  LDA #$00
+  STA ballup
+  JMP Paddle1CollisionDone
 Paddle1CollisionDone:
 Paddle2Collision:
   LDA ballx
-  CMP #PADDLE2X
+  CMP #PADDLE2XADJUST
   BCC Paddle2CollisionDone
   LDA bally
-  CMP paddle2ybot
-  BCC Paddle2CollisionDone
+  CMP paddle2ybotadjust
+  BCC Paddle2YColissionBot
   LDA bally
   CMP paddle2ytop
-  BCS Paddle2CollisionDone
+  BCS Paddle2YColissionTop
   LDA #$00
   STA ballright
   LDA #$01
   STA ballleft
   JSR Paddle_sound
+  JMP Paddle2CollisionDone
+Paddle2YColissionBot:
+  LDA paddle2ybotadjust
+  SBC #$02
+  CMP bally
+  BCS Paddle2CollisionDone
+  LDA #$00
+  STA balldown
+  LDA #$01
+  STA ballup
+  JMP Paddle2CollisionDone
+Paddle2YColissionTop:
+  LDA paddle2ytop
+  CLC
+  ADC #$02
+  CMP bally
+  BCC Paddle2CollisionDone
+  LDA #$01
+  STA balldown
+  LDA #$00
+  STA ballup
+  JMP Paddle2CollisionDone
 Paddle2CollisionDone:
 CheckPaddleCollisionDone:
 
@@ -554,7 +618,7 @@ UpdateSprites:
   STA $0200
   LDA #$75
   STA $0201
-  LDA #$00
+  LDA #$02
   STA $0202
   LDA ballx
   STA $0203
@@ -566,10 +630,10 @@ DrawPaddle1Loop:
   TXA
   STA #$0204, y
   INY
-  LDA #$31
+  LDA #$59
   STA $0204, y
   INY
-  LDA #$00
+  LDA #$01
   STA $0204, y
   INY
   LDA #PADDLE1X
@@ -587,7 +651,7 @@ DrawPaddle2Loop:
   TXA
   STA #$0204, y
   INY
-  LDA #$31
+  LDA #$59
   STA $0204, y
   INY
   LDA #$00
@@ -982,7 +1046,7 @@ mute_all_channels:
 palette:
   .db $22,$30,$1A,$0F,  $22,$30,$27,$17,  $2A,$30,$2A,$2A,  $30,$30,$30,$30   ;;background palette
 
-  .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ;;sprite palette
+  .db $22,$1C,$15,$14,  $22,$1C,$15,$14,  $29,$2A,$19,$3A,  $22,$30,$27,$17   ;;sprite palette
 
 sprites:
      ;vert tile attr horiz
