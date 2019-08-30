@@ -15,20 +15,21 @@
   STATEPLAYING   = $01  ; move paddles/ball, check for collisions
   STATEGAMEOVER  = $02  ; displaying game over screen
   RIGHTWALL      = $F4  ; when ball reaches one of these, do something
-  TOPWALL        = $20
-  BOTTOMWALL     = $E0
+  TOPWALL        = $10
+  TOPWALLADJUST  = $18
+  BOTTOMWALL     = $D8
   LEFTWALL       = $04
-  PADDLE1X       = $18  ; horizontal position for paddles, doesnt move
+  PADDLE1X       = $18  ; horizontal position for paddles
   PADDLE1XADJUST = $20
   PADDLE2X       = $E0
-  PADDLE2XADJUST       = $D8
+  PADDLE2XADJUST = $D8
 
 ;----------------------------------------------------------------
 ; variables
 ;----------------------------------------------------------------
 
-  .enum $0000  ;;start variables at ram location 0
-  gamestate     .dsb 1  ; .dsb 1 means reserve one byte of space
+  .enum $0000  
+  gamestate     .dsb 1 
   ballx         .dsb 1  ; ball horizontal position
   bally         .dsb 1  ; ball vertical position
   ballup        .dsb 1  ; 1 = ball moving up
@@ -198,7 +199,7 @@ InitialValues:
   STA ballup
   STA ballleft
   STA waitNextRound
-  LDA #$50
+  LDA #$18
   STA bally
   LDA #$70
   STA ballx
@@ -207,13 +208,13 @@ InitialValues:
   STA ballspeedy
   STA paddlespeedy
 
-  LDA #$70
+  LDA #$64
   STA paddle1ybot
   STA paddle2ybot
   SBC #$08
   STA paddle1ybotadjust
   STA paddle2ybotadjust
-  LDA #$90
+  LDA #$84
   STA paddle1ytop
   STA paddle2ytop
 
@@ -327,7 +328,7 @@ MoveBallRight:
   LDA #$00
   STA ballup
   STA ballleft
-  LDA #$50
+  LDA #$18
   STA bally
   LDA #$78
   STA ballx
@@ -335,13 +336,13 @@ MoveBallRight:
   STA ballspeedx
   STA ballspeedy
   STA paddlespeedy
-  LDA #$70
+  LDA #$64
   STA paddle1ybot
   STA paddle2ybot
   SBC #$08
   STA paddle1ybotadjust
   STA paddle2ybotadjust
-  LDA #$90
+  LDA #$84
   STA paddle1ytop
   STA paddle2ytop
   LDA #$00
@@ -386,7 +387,7 @@ MoveBallLeft:
   LDA #$00
   STA balldown
   STA ballright
-  LDA #$50
+  LDA #$18
   STA bally
   LDA #$78
   STA ballx
@@ -394,13 +395,13 @@ MoveBallLeft:
   STA ballspeedx
   STA ballspeedy
   STA paddlespeedy
-  LDA #$70
+  LDA #$64
   STA paddle1ybot
   STA paddle2ybot
   SBC #$08
   STA paddle1ybotadjust
   STA paddle2ybotadjust
-  LDA #$90
+  LDA #$84
   STA paddle1ytop
   STA paddle2ytop
   LDA #$00
@@ -420,7 +421,7 @@ MoveBallUp:
   LDA #$01
   STA balldown
   LDA #$00
-  STA ballup         ;;bounce, ball now moving down
+  STA ballup        
 MoveBallUpDone:
 
 MoveBallDown:
@@ -436,20 +437,17 @@ MoveBallDown:
   LDA #$00
   STA balldown
   LDA #$01
-  STA ballup         ;;bounce, ball now moving down
+  STA ballup        
 MoveBallDownDone:
 
 MovePaddle1Up:
-  ;;if up button pressed
-  ;;  if paddle top > top wall
-  ;;    move paddle top and bottom up
   LDA buttons1
   AND #%00001000
   TAX
   CPX #$00
   BEQ MovePaddle1UpDone
   LDA paddle1ybot
-  CMP #TOPWALL
+  CMP #TOPWALLADJUST
   BCC MovePaddle1UpDone
   LDA paddle1ybot
   SBC paddlespeedy
@@ -468,7 +466,7 @@ MovePaddle2Up:
   CPX #$00
   BEQ MovePaddle2UpDone
   LDA paddle2ybot
-  CMP #TOPWALL
+  CMP #TOPWALLADJUST
   BCC MovePaddle2UpDone
   LDA paddle2ybot
   SBC paddlespeedy
@@ -481,13 +479,6 @@ MovePaddle2Up:
 MovePaddle2UpDone:
 
 MovePaddle1Down:
-  ;;if down button pressed
-  ;;  if paddle bottom < bottom wall
-  ;;    move paddle top and LDA #$10
- ; STA paddle2ybot
-  ;LDA #$30
-  ;STA paddle2ytopbottom down
-
   LDA buttons1
   AND #%00000100
   TAX
@@ -529,10 +520,6 @@ MovePaddle2Down:
 MovePaddle2DownDone:
 
 CheckPaddleCollision:
-  ;;if ball x < paddle1x
-  ;;  if ball y > paddle y top
-  ;;    if ball y < paddle y bottom
-  ;;      bounce, ball now moving left
 Paddle1Collision:
   LDA ballx
   CMP #PADDLE1XADJUST
@@ -622,7 +609,6 @@ UpdateSprites:
   STA $0202
   LDA ballx
   STA $0203
-  ;;update paddle sprites
 DrawPaddle1:
   LDX paddle1ybot
   LDY #$00
@@ -1192,4 +1178,4 @@ attribute:
 ; CHR-ROM bank
 ;----------------------------------------------------------------
 
-  .incbin "mario.chr"   ;includes 8KB graphics file from SMB1
+  .incbin "sprites.chr"   ;includes 8KB graphics file from SMB1
