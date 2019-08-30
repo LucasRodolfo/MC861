@@ -28,8 +28,8 @@
 ; variables
 ;----------------------------------------------------------------
 
-  .enum $0000  
-  gamestate     .dsb 1 
+  .enum $0000
+  gamestate     .dsb 1
   ballx         .dsb 1  ; ball horizontal position
   bally         .dsb 1  ; ball vertical position
   ballup        .dsb 1  ; 1 = ball moving up
@@ -301,11 +301,6 @@ MoveBallRight:
   LDA ballx
   CMP #RIGHTWALL
   BCC MoveBallRightDone      ;;if ball x < right wall, still on screen, skip next section
-  ;LDA #$00
-  ;STA ballright
-  ;LDA #$01
-  ;STA ballleft         ;;bounce, ball now moving left
-  ;;in real game, give point to player 1, reset ball
   LDA #$00
   STA balldown
   STA ballright
@@ -317,7 +312,7 @@ MoveBallRight:
   INX
   TXA
   STA scorePlayer1
-  jsr IncrementScore
+  jsr IncrementScore1
   JSR fake_loop
   JSR fake_loop
   JSR fake_loop
@@ -360,10 +355,6 @@ MoveBallLeft:
   LDA ballx
   CMP #LEFTWALL
   BCS MoveBallLeftDone      ;;if ball x > left wall, still on screen, skip next section
-  ;LDA #$01
-  ;STA ballright
-  ;LDA #$00
-  ;STA ballleft         ;;bounce, ball now moving right
   ;;in real game, give point to player 2, reset ball
   LDA #$00
   STA balldown
@@ -421,7 +412,7 @@ MoveBallUp:
   LDA #$01
   STA balldown
   LDA #$00
-  STA ballup        
+  STA ballup
 MoveBallUpDone:
 
 MoveBallDown:
@@ -437,7 +428,7 @@ MoveBallDown:
   LDA #$00
   STA balldown
   LDA #$01
-  STA ballup        
+  STA ballup
 MoveBallDownDone:
 
 MovePaddle1Up:
@@ -661,17 +652,17 @@ DrawScore:
   LDA #$20
   STA $2006          ; start drawing the score at PPU $2020
   LDX #$00
+
 DrawPlayerOneString:
   LDA playerOneString, x     ; load data from address (background + the value in x)
   STA $2007             ; write to PPU
   INX                   ; X = X + 1
   CPX #$05              ; Compare X to hex $80, decimal 128 - copying 128 bytes
   BNE DrawPlayerOneString
-
   LDA scorePlayer1      ; last digit
   STA $2007
-
   LDX #$00
+
 DrawPlaceholder:
   LDA placeholder, x     ; load data from address (background + the value in x)
   STA $2007             ; write to PPU
@@ -691,41 +682,6 @@ DrawScore2:
   LDA scorePlayer2  ; get first digit
   STA $2007          ; draw to background
   RTS
-
-IncrementScore:
-IncOnes:
-  LDA scorePlayer1      ; load the lowest digit of the number
-  CMP #$05
-  BEQ Play_winners
-  JSR Score_sound
-  CMP #$0A           ; check if it overflowed, now equals 10
-  BNE IncDone        ; if there was no overflow, all done
-IncTens:
-  LDA #$00
-  STA scoreOnes      ; wrap digit to 0
-  LDA scoreTens      ; load the next digit
-  CLC
-  ADC #$01           ; add one, the carry from previous digit
-  STA scoreTens
-  CMP #$0A           ; check if it overflowed, now equals 10
-  BNE IncDone        ; if there was no overflow, all done
-IncHundreds:
-  LDA #$00
-  STA scoreTens      ; wrap digit to 0
-  LDA scoreHundreds  ; load the next digit
-  CLC
-  ADC #$01           ; add one, the carry from previous digit
-  STA scoreHundreds
-IncDone:
-
-IncrementScore2:
-  LDA scorePlayer2      ; load the lowest digit of the number
-  CMP #$05
-  BEQ Play_winners
-  JSR Score_sound
-  CMP #$0A           ; check if it overflowed, now equals 10
-  BNE Inc2Done        ; if there was no overflow, all done
-Inc2Done:
 
 ReadController1:
   LDA #$01
@@ -754,6 +710,22 @@ ReadController2Loop:
   DEX
   BNE ReadController2Loop
   RTS
+
+IncrementScore2:
+  LDA scorePlayer2      ; load the lowest digit of the number
+  CMP #$05
+  BEQ Play_winners
+  JSR Score_sound
+  RTS
+
+
+IncrementScore1:
+  LDA scorePlayer1      ; load the lowest digit of the number
+  CMP #$05
+  BEQ Play_winners
+  JSR Score_sound
+  RTS
+
 
 Play_winners:
   JSR Play_winnersound
