@@ -50,7 +50,14 @@ test: ${BIN} ${LOG} ${NES} ${TESTS}
 	}
 
 setup:
-	sudo apt-get install higan g++ libsdl1.2-dev libsdl-image1.2-dev libsdl-mixer1.2-dev libsdl-ttf2.0-dev
+	curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
+	source ~/.bashrc
+	export NVM_DIR="$HOME/.nvm"
+	[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+	[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+	nvm install v10.16.0
+	nvm use v10.16.0
+	npm install
 
 clean:
 	rm -rf ${BIN}/* ${LOG}/*
