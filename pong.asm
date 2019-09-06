@@ -526,6 +526,14 @@ Paddle1Collision:
   LDA #$00
   STA ballleft
   JSR Paddle_sound
+  LDX ballspeedx
+  INX
+  TXA
+  STA ballspeedx
+  LDX ballspeedy
+  INX
+  TXA
+  STA ballspeedy
   JMP Paddle1CollisionDone
 Paddle1YColissionBot:
   LDA paddle1ybotadjust
