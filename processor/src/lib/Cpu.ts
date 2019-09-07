@@ -131,6 +131,8 @@ export class Cpu {
                 break;
         }
 
+        // Print system state
+        console.log(`| pc = ${this.state.pc} | a = ${this.state.a} | x = ${this.state.x} | y = ${this.state.y} | sp = ${this.state.sp} |`)
         this.delayLoop(this.state.ir);
 
         this.peekAhead();
