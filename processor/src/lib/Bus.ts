@@ -1,12 +1,13 @@
 import {sprintf} from 'sprintf-js';
-import {Device} from './Device';
+
+import {DEFAULT_END_ADDRESS, DEFAULT_START_ADDRESS} from './constants';
+import {Device} from './devices/Device';
 import {MemoryAccessException, MemoryRangeException} from './exceptions';
-import {DEFAULT_START_ADDRESS, DEFAULT_END_ADDRESS} from './constants';
 
 export class Bus {
 
-    private readonly startAddress: number;
-    private readonly endAddress: number;
+    public readonly startAddress: number;
+    public readonly endAddress: number;
 
     private deviceMap: Map<number, Set<Device>>;
 
@@ -22,7 +23,7 @@ export class Bus {
 
         this.deviceAddressArray = Array(this.endAddress - this.startAddress + 1);
 
-        this.sortedDevices().forEach(device => {
+        this.sortedDevices().forEach((device: Device) => {
             const range = device.memoryRange;
             for (let address = range.startAddress; address <= range.endAddress; address++) {
                 this.deviceAddressArray[address - this.startAddress] = device;
@@ -34,7 +35,7 @@ export class Bus {
         const devices = new Set<Device>();
 
         Array.from(this.deviceMap.keys()).sort().forEach((priority: number) => {
-            this.deviceMap.get(priority).forEach(device => devices.add(device));
+            this.deviceMap.get(priority).forEach((device: Device) => devices.add(device));
         });
 
         return devices;
@@ -64,7 +65,7 @@ export class Bus {
     }
 
     public removeDevice(device: Device): void {
-        this.deviceMap.forEach(deviceSet => deviceSet.delete(device));
+        this.deviceMap.forEach((deviceSet: Set<Device>) => deviceSet.delete(device));
         this.buildDeviceAddressArray();
     }
 
@@ -104,9 +105,9 @@ export class Bus {
         device.write(deviceAddress, value);
     }
 
-    public loadProgram(address: number, ...program: number[]): void {
-        program.forEach((d, i) => {
-            this.write(address + i, d);
+    public loadProgram(address: number, program: number[] | Uint8Array): void {
+        program.forEach((byte: number, i: number) => {
+            this.write(address + i, byte);
         });
     }
 }

@@ -6,11 +6,23 @@
         120
       ]
     },
+    "trailing-comma": false,
+    "variable-name": {
+      "options": [
+        "allow-leading-underscore"
+      ]
+    },
+    "quotemark": [
+      true,
+      "single"
+    ],
+    "member-ordering": false,
     "new-parens": true,
     "no-arg": true,
-    "no-bitwise": true,
+    "no-bitwise": false,
     "no-conditional-assignment": true,
-    "no-consecutive-blank-lines": false
+    "no-consecutive-blank-lines": false,
+    "no-console": false
   },
   "jsRules": {
     "max-line-length": {

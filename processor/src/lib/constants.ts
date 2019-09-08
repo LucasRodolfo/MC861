@@ -18,6 +18,8 @@ export const IRQ_VECTOR_H = 0xffff;
 
 export const DEFAULT_CLOCK_PERIOD_IN_NS: number = 1000;
 
+export const ROM_SIZE: number = 0xffff;
+
 export const DEFAULT_START_ADDRESS: number  = 0x0000;
-export const DEFAULT_END_ADDRESS: number    = 0xffff;
+export const DEFAULT_END_ADDRESS: number    = ROM_SIZE;
 export const DEFAULT_LOAD_ADDRESS: number   = 0x0200;

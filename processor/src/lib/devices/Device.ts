@@ -1,15 +1,12 @@
-import {MemoryRange} from './MemoryRange';
-import {Bus} from './Bus';
+import {MemoryRange} from '../MemoryRange';
 
 export abstract class Device {
 
-    private _size: number;
+    protected _size: number;
 
-    private _memoryRange: MemoryRange;
+    protected _memoryRange: MemoryRange;
 
-    private _name: string;
-
-    private _bus: Bus;
+    protected _name: string;
 
     // TODO: implement DeviceChangeListener
 
@@ -19,44 +16,28 @@ export abstract class Device {
         this.name = name;
     }
 
-    // @ts-ignore
     get size(): number {
         return this._size;
     }
 
-    // @ts-ignore
     set size(value: number) {
         this._size = value;
     }
 
-    // @ts-ignore
     get memoryRange(): MemoryRange {
         return this._memoryRange;
     }
 
-    // @ts-ignore
     set memoryRange(value: MemoryRange) {
         this._memoryRange = value;
     }
 
-    // @ts-ignore
     get name(): string {
         return this._name;
     }
 
-    // @ts-ignore
     set name(value: string) {
         this._name = value;
-    }
-
-    // @ts-ignore
-    get bus(): Bus {
-        return this._bus;
-    }
-
-    // @ts-ignore
-    set bus(value: Bus) {
-        this._bus = value;
     }
 
     public abstract write(address: number, data: number): void;

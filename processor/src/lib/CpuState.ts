@@ -21,7 +21,7 @@ export class CpuState {
     public args: number[] = [0, 0];
     public nextArgs: number[] = [0, 0];
     public instSize: number;
-    public opTrap: boolean;
+    public noOp: boolean;
     public irqAsserted: boolean;
     public nmiAsserted: boolean;
     public lastPc: number;
@@ -48,7 +48,7 @@ export class CpuState {
             this.args = state.args.slice(0, 2);
             this.nextArgs = state.nextArgs.slice(0, 2);
             this.instSize = state.instSize;
-            this.opTrap = state.opTrap;
+            this.noOp = state.noOp;
             this.irqAsserted = state.irqAsserted;
             this.carryFlag = state.carryFlag;
             this.negativeFlag = state.negativeFlag;
@@ -61,18 +61,21 @@ export class CpuState {
         }
     }
 
-    toTraceEvent(): string {
-        return this.getInstructionByteStatus() + '  ' +
+    public toTraceEvent(): string {
+        const status = this.getInstructionByteStatus();
+        return status + '\t\t' +
             sprintf('%-14s', disassembleOp(this.ir, this.args)) +
-            'A:' + byteToHex(this.a) + ' ' +
-            'X:' + byteToHex(this.x) + ' ' +
-            'Y:' + byteToHex(this.y) + ' ' +
-            'F:' + byteToHex(this.getStatusFlag()) + ' ' +
-            'S:1' + byteToHex(this.sp) + ' ' +
-            this.getProcessorStatusString() + '\n';
+            '\t\t' +
+            'PC: ' + wordToHex(this.pc) + '  ' +
+            'A: ' + byteToHex(this.a) + '  ' +
+            'X: ' + byteToHex(this.x) + '  ' +
+            'Y: ' + byteToHex(this.y) + '  ' +
+            'F: ' + byteToHex(this.getStatusFlag()) + '  ' +
+            'SP: ' + wordToHex(this.sp) + '  ' +
+            this.getProcessorStatusString();
     }
 
-    getStatusFlag(): number {
+    public getStatusFlag(): number {
         let status = 0x20;
         if (this.carryFlag) {
             status |= P_CARRY;
@@ -98,27 +101,21 @@ export class CpuState {
         return status;
     }
 
-    getInstructionByteStatus(): string {
+    public getInstructionByteStatus(): string {
         switch (instructionSizes[this.ir]) {
             case 0:
             case 1:
-                return wordToHex(this.lastPc) + '  ' +
-                    byteToHex(this.ir) + '      ';
+                return `${wordToHex(this.lastPc)}  ${byteToHex(this.ir)}      `;
             case 2:
-                return wordToHex(this.lastPc) + '  ' +
-                    byteToHex(this.ir) + ' ' +
-                    byteToHex(this.args[0]) + '   ';
+                return `${wordToHex(this.lastPc)}  ${byteToHex(this.ir)} ${byteToHex(this.args[0])}   `;
             case 3:
-                return wordToHex(this.lastPc) + '  ' +
-                    byteToHex(this.ir) + ' ' +
-                    byteToHex(this.args[0]) + ' ' +
-                    byteToHex(this.args[1]);
+                return `${wordToHex(this.lastPc)}  ${byteToHex(this.ir)} ${byteToHex(this.args[0])} ${byteToHex(this.args[1])}`;
             default:
                 return null;
         }
     }
 
-    getProcessorStatusString(): string {
+    public getProcessorStatusString(): string {
         return '[' + (this.negativeFlag ? 'N' : '.') +
             (this.overflowFlag ? 'V' : '.') +
             '-' +

@@ -164,68 +164,42 @@ export function disassembleOp(opCode: number, args: number[]): string {
 
     const mnemonic = opcodeNames[opCode];
 
-    if (mnemonic == null) {
+    if (!mnemonic) {
         return '???';
     }
 
-    const sb = [mnemonic];
+    return mnemonic + addressing(opCode, args);
+}
+
+
+function addressing(opCode: number, args: number[]): string {
 
     switch (instructionModes[opCode]) {
         case Mode.ABS:
-            sb.push(' $');
-            sb.push(wordToHex(address(args[0], args[1])));
-            break;
+            return ` $${wordToHex(address(args[0], args[1]))}`;
         case Mode.AIX:
-            sb.push(' ($');
-            sb.push(wordToHex(address(args[0], args[1])));
-            sb.push(',X)');
-            break;
+            return ` ($${wordToHex(address(args[0], args[1]))},X)`;
         case Mode.ABX:
-            sb.push(' $');
-            sb.push(wordToHex(address(args[0], args[1])));
-            sb.push(',X');
-            break;
+            return ` $${wordToHex(address(args[0], args[1]))},X`;
         case Mode.ABY:
-            sb.push(' $');
-            sb.push(wordToHex(address(args[0], args[1])));
-            sb.push(',Y');
-            break;
+            return ` $${wordToHex(address(args[0], args[1]))},Y`;
         case Mode.IMM:
-            sb.push(' #$');
-            sb.push(byteToHex(args[0]));
-            break;
+            return ` #$${byteToHex(args[0])}`;
         case Mode.IND:
-            sb.push(' ($');
-            sb.push(wordToHex(address(args[0], args[1])));
-            sb.push(')');
-            break;
+            return ` ($${wordToHex(address(args[0], args[1]))})`;
         case Mode.XIN:
-            sb.push(' ($');
-            sb.push(byteToHex(args[0]));
-            sb.push(',X)');
-            break;
+            return ` ($${byteToHex(args[0])},X)`;
         case Mode.INY:
-            sb.push(' ($');
-            sb.push(byteToHex(args[0]));
-            sb.push('),Y');
-            break;
+            return ` ($${byteToHex(args[0])}),Y`;
         case Mode.REL:
         case Mode.ZPR:
         case Mode.ZPG:
-            sb.push(' $');
-            sb.push(byteToHex(args[0]));
-            break;
+            return ` $${byteToHex(args[0])}`;
         case Mode.ZPX:
-            sb.push(' $');
-            sb.push(byteToHex(args[0]));
-            sb.push(',X');
-            break;
+            return ` $${byteToHex(args[0])},X`;
         case Mode.ZPY:
-            sb.push(' $');
-            sb.push(byteToHex(args[0]));
-            sb.push(',Y');
-            break;
+            return ` $${byteToHex(args[0])},Y`;
+        default:
+            return '';
     }
-
-    return sb.toString();
 }
