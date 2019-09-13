@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import {Bus} from './Bus';
 import {CpuState} from './CpuState';
 import {disassembleOp, instructionClocksNmos, instructionSizes} from './disassembler';
-import {address, nanoseconds, wordToHex} from './utils';
+import {address, nanoseconds, wordToHex, byteToHex} from './utils';
 
 import {
     DEFAULT_CLOCK_PERIOD_IN_NS, IRQ_VECTOR_H, IRQ_VECTOR_L, NMI_VECTOR_H, NMI_VECTOR_L,
@@ -126,6 +126,7 @@ export class Cpu {
 
         this.state.stepCounter++;
 
+        this.state.a = this.state.pc;
         this.runInstruction(currentPC, irAddressMode, irOpMode);
 
         // Print system state
@@ -156,10 +157,10 @@ export class Cpu {
 
         let implemented = true;
 
-        switch (this.state.ir) {
-
-            // TODO
-
+        switch (byteToHex(this.state.ir)) {
+            case '0xaa':    //TAX
+                this.state.x = this.state.a;
+                break;
             default:
                 implemented = false;
                 this.state.noOp = true;
