@@ -130,7 +130,10 @@ export class Cpu {
         this.runInstruction(currentPC, irAddressMode, irOpMode);
 
         // Print system state
-        console.log(`| pc = ${this.state.pc} | a = ${this.state.a} | x = ${this.state.x} | y = ${this.state.y} | sp = ${this.state.sp} |`)
+        if (this.state.ir !== 0x00) {
+            console.log(`| pc = ${this.state.pc} | a = ${this.state.a} | x = ${this.state.x} | y = ${this.state.y} | sp = ${this.state.sp} |`)
+        }
+
         this.delayLoop(this.state.ir);
 
         this.peekAhead();
@@ -157,18 +160,23 @@ export class Cpu {
 
         let implemented = true;
 
-        switch (byteToHex(this.state.ir)) {
-            case '0xaa':    //TAX
+        switch (this.state.ir) {
+
+            // TAX
+            case 0xAA:
                 this.state.x = this.state.a;
                 break;
+
             default:
                 implemented = false;
                 this.state.noOp = true;
         }
 
-        const text = this.state.toTraceEvent();
-        const formattedText = implemented ? chalk.green(text) : chalk.red(text);
-        console.log(formattedText);
+        if (this.state.ir !== 0x00) {
+            const text = this.state.toTraceEvent();
+            const formattedText = implemented ? chalk.green(text) : chalk.red(text);
+            console.log(formattedText);
+        }
     }
 
     private peekAhead(): void {
