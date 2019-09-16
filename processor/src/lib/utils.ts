@@ -31,6 +31,11 @@ export function address(lowByte: number, hiByte: number): number {
     return ((hiByte << 8) | lowByte) & 0xffff;
 }
 
+export function numberToByte(val: number): number {
+    const ubyte = val & 0xff;
+    return ubyte >= 128 ? ubyte - 256 : ubyte;
+}
+
 export function nanoseconds(time = process.hrtime()) {
     if (!Array.isArray(time) || time.length !== 2) {
         throw new TypeError('expected an array from process.hrtime()');
