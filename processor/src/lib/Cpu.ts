@@ -3,10 +3,14 @@ import chalk from 'chalk';
 import {Bus} from './Bus';
 import {CpuState} from './CpuState';
 import {disassembleOp, instructionClocksNmos, instructionSizes} from './disassembler';
-import {address, nanoseconds, wordToHex, byteToHex} from './utils';
+import {address, nanoseconds, numberToByte} from './utils';
 
 import {
-    DEFAULT_CLOCK_PERIOD_IN_NS, IRQ_VECTOR_H, IRQ_VECTOR_L, NMI_VECTOR_H, NMI_VECTOR_L,
+    DEFAULT_CLOCK_PERIOD_IN_NS,
+    IRQ_VECTOR_H,
+    IRQ_VECTOR_L,
+    NMI_VECTOR_H,
+    NMI_VECTOR_L,
     P_BREAK,
     P_CARRY,
     P_DECIMAL,
@@ -14,8 +18,10 @@ import {
     P_NEGATIVE,
     P_OVERFLOW,
     P_ZERO,
+    ROM_SIZE,
     RST_VECTOR_H,
-    RST_VECTOR_L
+    RST_VECTOR_L,
+    STACK_ADDRESS
 } from './constants';
 
 export class Cpu {
@@ -33,32 +39,26 @@ export class Cpu {
         this.bus = bus;
     }
 
-    // @ts-ignore
     get clockPeriodInNs(): number {
         return this._clockPeriodInNs;
     }
 
-    // @ts-ignore
     set clockPeriodInNs(value: number) {
         this._clockPeriodInNs = value;
     }
 
-    // @ts-ignore
     get state(): CpuState {
         return this._state;
     }
 
-    // @ts-ignore
     set state(value: CpuState) {
         this._state = value;
     }
 
-    // @ts-ignore
     get bus(): Bus {
         return this._bus;
     }
 
-    // @ts-ignore
     set bus(value: Bus) {
         this._bus = value;
     }
@@ -131,7 +131,7 @@ export class Cpu {
 
         // Print system state
         if (this.state.ir !== 0x00) {
-            console.log(`| pc = ${this.state.pc} | a = ${this.state.a} | x = ${this.state.x} | y = ${this.state.y} | sp = ${this.state.sp} |`)
+            console.log(`| pc = ${this.state.pc} | a = ${this.state.a} | x = ${this.state.x} | y = ${this.state.y} | sp = ${this.state.sp} |`);
         }
 
         this.delayLoop(this.state.ir);
@@ -139,24 +139,83 @@ export class Cpu {
         this.peekAhead();
     }
 
-    private calculateEffectiveAddress(irOpMode: number, irAddressMode: number): number {
+    private calculateEffectiveAddress(irAddressMode: number, irOpMode: number): number {
+
         switch (irOpMode) {
             case 0:
             case 2:
-                // TODO
-                return 0;
+                switch (irAddressMode) {
+                    case 0: // #Immediate
+                        return 0;
+                    case 1: // Zero Page
+                        return this.state.args[0];
+                    case 2: // Accumulator - ignored
+                        return 0;
+                    case 3: // Absolute
+                        return address(this.state.args[0], this.state.args[1]);
+                    case 4: // 65C02 (Zero Page)
+                        return 0;
+                    case 5: // Zero Page,X / Zero Page,Y
+                        if (this.state.ir === 0x14) { // 65C02 TRB Zero Page
+                            return this.state.args[0];
+                        } else if (this.state.ir === 0x96 || this.state.ir === 0xb6) {
+                            return this.zpyAddress(this.state.args[0]);
+                        } else {
+                            return this.zpxAddress(this.state.args[0]);
+                        }
+                    case 7:
+                        if (this.state.ir === 0x9c || this.state.ir === 0x1c) { // 65C02 STZ & TRB Absolute
+                            return address(this.state.args[0], this.state.args[1]);
+                        }
+                        if (this.state.ir === 0xbe) { // Absolute,X / Absolute,Y
+                            return this.yAddress(this.state.args[0], this.state.args[1]);
+                        }
+                        return this.xAddress(this.state.args[0], this.state.args[1]);
+                    default:
+                        throw new Error(`Invalid irAddressMode=${irAddressMode}`);
+                }
             case 1:
-                // TODO
-                return 0;
+                switch (irAddressMode) {
+                    case 0: {   // (Zero Page,X)
+                        const tmp = (this.state.args[0] + this.state.x) & 0xff;
+                        return address(this.bus.read(tmp, true), this.bus.read(tmp + 1, true));
+                    }
+                    case 1: // Zero Page
+                        return this.state.args[0];
+                    case 2: // #Immediate
+                        return -1;
+                    case 3: // Absolute
+                        return address(this.state.args[0], this.state.args[1]);
+                    case 4: {   // (Zero Page),Y
+                        const tmp = address(this.bus.read(this.state.args[0], true),
+                            this.bus.read((this.state.args[0] + 1) & 0xff, true));
+                        return (tmp + this.state.y) & 0xffff;
+                    }
+                    case 5: // Zero Page,X
+                        return this.zpxAddress(this.state.args[0]);
+                    case 6: // Absolute, Y
+                        return this.yAddress(this.state.args[0], this.state.args[1]);
+                    case 7: // Absolute, X
+                        return this.xAddress(this.state.args[0], this.state.args[1]);
+                    default:
+                        throw new Error(`Invalid irAddressMode=${irAddressMode}`);
+                }
             case 3:
-                // TODO
-                return 0;
+                switch (irAddressMode) {
+                    case 1: // Zero Page
+                    case 3:
+                    case 5:
+                    case 7: // Zero Page, Relative
+                        return this.state.args[0];
+                    default:
+                        throw new Error(`Invalid irAddressMode=${irAddressMode}`);
+                }
         }
     }
 
-    private runInstruction(currentPC: number, irOpMode: number, irAddressMode: number): void {
+    private runInstruction(currentPC: number, irAddressMode: number, irOpMode: number): void {
 
-        const effectiveAddress = this.calculateEffectiveAddress(irOpMode, irAddressMode);
+        const effectiveAddress = this.calculateEffectiveAddress(irAddressMode, irOpMode);
 
         let implemented = true;
 
@@ -220,8 +279,7 @@ export class Cpu {
     }
 
     public stackPush(data: number) {
-        // TODO: use constant instead
-        this.bus.write(0x100 + this.state.sp, data);
+        this.bus.write(STACK_ADDRESS + this.state.sp, data);
 
         if (this.state.sp === 0) {
             this.state.sp = 0xff;
@@ -238,13 +296,11 @@ export class Cpu {
             this.state.sp++;
         }
 
-        // TODO: use constant instead
-        return this.bus.read(0x100 + this.state.sp, true);
+        return this.bus.read(STACK_ADDRESS + this.state.sp, true);
     }
 
     public stackPeek() {
-        // TODO: use constant instead
-        return this.bus.read(0x100 + this.state.sp + 1, true);
+        return this.bus.read(STACK_ADDRESS + this.state.sp + 1, true);
     }
 
     public setProgramCounter(addr: number): void {
@@ -269,8 +325,27 @@ export class Cpu {
 
 
     private incrementPC(): void {
-        // TODO: use constant instead
-        this.state.pc = (this.state.pc + 1) % 0x10000;
+        this.state.pc = (this.state.pc + 1) % (ROM_SIZE + 1);
+    }
+
+    private xAddress(lowByte: number, hiByte: number): number {
+        return (address(lowByte, hiByte) + this.state.x) & 0xffff;
+    }
+
+    private yAddress(lowByte: number, hiByte: number) {
+        return (address(lowByte, hiByte) + this.state.y) & 0xffff;
+    }
+
+    private zpxAddress(zp: number) {
+        return (zp + this.state.x) & 0xff;
+    }
+
+    private zpyAddress(zp: number) {
+        return (zp + this.state.y) & 0xff;
+    }
+
+    private relAddress(offset: number) {
+        return (this.state.pc + numberToByte(offset)) & 0xffff;
     }
 
     private delayLoop(opcode: number): void {
