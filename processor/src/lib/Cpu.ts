@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import {Bus} from './Bus';
 import {CpuState} from './CpuState';
 import {disassembleOp, instructionClocksNmos, instructionSizes} from './disassembler';
-import {address, nanoseconds, wordToHex, byteToHex} from './utils';
+import {address, nanoseconds, wordToHex, byteToHex,numberToByte} from './utils';
 
 import {
     DEFAULT_CLOCK_PERIOD_IN_NS, IRQ_VECTOR_H, IRQ_VECTOR_L, NMI_VECTOR_H, NMI_VECTOR_L,
@@ -125,14 +125,35 @@ export class Cpu {
         }
 
         this.state.stepCounter++;
-
-        this.state.a = this.state.pc;
+        //Usado para testar o TAX
+        //this.state.zeroFlag = false;
+        //this.state.a = this.state.pc;
+        //this.state.carryFlag = true;
+        //this.state.negativeFlag = true;
+        this.state.overflowFlag = true;
         this.runInstruction(currentPC, irAddressMode, irOpMode);
 
         // Print system state
         if (this.state.ir !== 0x00) {
             console.log(`| pc = ${this.state.pc} | a = ${this.state.a} | x = ${this.state.x} | y = ${this.state.y} | sp = ${this.state.sp} |`)
+            var pilha1 = this.stackPop();
+            console.log(pilha1);
+
+            var pilha2 = this.stackPop();
+            console.log(pilha2);
+
+            var pilha3 = this.stackPop();
+            console.log(pilha3);
+
+            var pilha4 = this.stackPop();
+            console.log(pilha4);
+            this.stackPush(pilha4);
+            this.stackPush(pilha3);
+            this.stackPush(pilha2);
+            this.stackPush(pilha1);
         }
+
+
 
         this.delayLoop(this.state.ir);
 
@@ -162,14 +183,103 @@ export class Cpu {
 
         switch (this.state.ir) {
 
+            //Nao testei ainda (Lucas)
+            //case 0x00: // BRK - Force Interrupt - Implied
+            //  this.handleBrk(this.state.pc + 1);
+            //  break;
+            case 0x08: // PHP - Push Processor Status - Implied
+                // Break flag is always set in the stack value.
+                this.stackPush(this.state.getStatusFlag() | 0x10);
+                break;
+            case 0x28: // PLP - Pull Processor Status - Implied
+                this.setProcessorStatus(this.stackPop());
+                break;
+            case 0x48: // PHA - Push Accumulator - Implied
+                this.stackPush(this.state.a);
+                break;
             // TAX
-            case 0xAA:
+            case 0xaa:
                 this.state.x = this.state.a;
                 break;
+            case 0xf0: // BEQ - Branch if Equal to Zero - Relative
+                if (this.getZeroFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                this.state.zeroFlag = false;
+                break;
+            case 0xd0: // BNE - Branch if Not Equal to Zero - Relative
+                if (!this.getZeroFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x90: // BCC - Branch if Carry Clear - Relative
+                if (!this.getCarryFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0xb0: // BCS - Branch if Carry Set - Relative
+                if (this.getCarryFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x30: // BMI - Branch if Minus - Relative
+                if (this.getNegativeFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x10: // BPL - Branch if Positive - Relative
+                if (!this.getNegativeFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x50: // BVC - Branch if Overflow Clear - Relative
+                if (!this.getOverflowFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x70: // BVS - Branch if Overflow Set - Relative
+                if (this.getOverflowFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x40: // RTI - Return from Interrupt - Implied
+                this.setProcessorStatus(this.stackPop());
+                var lo = this.stackPop();
+                var hi = this.stackPop();
+                this.setProgramCounter(address(lo, hi));
+                break;
+            //NAO TESTADO AINDA!
+            case 0x60: // RTS - Return from Subroutine - Implied
+                lo = this.stackPop();
+                hi = this.stackPop();
+                this.setProgramCounter((address(lo, hi) + 1) & 0xffff);
+                break;
+            // /** JMP *****************************************************************/
+            // case 0x4c: // JMP - Absolute
+            //     thi.state.pc = address(this.state.args[0], this.state.args[1]);
+            //     break;
+            // case 0x6c: // JMP - Indirect
+            //     lo = address(this.state.args[0], this.state.args[1]); // Address of low byte
+            //
+            //     if (this.state.args[0] == 0xff) {
+            //         hi = address(0x00, this.state.args[1]);
+            //     } else {
+            //         hi = lo + 1;
+            //     }
+            //
+            //     this.state.pc = address(bus.read(lo, true), bus.read(hi, true));
+            //     break;
+            // case 0x7c: // 65C02 JMP - (Absolute Indexed Indirect,X)
+            //     break;
+            //     lo = (((this.state.args[1] << 8) | this.state.args[0]) + this.state.x) & 0xffff;
+            //     hi = lo + 1;
+            //     this.state.pc = address(bus.read(lo, true), bus.read(hi, true));
+            //     break;
 
             default:
                 implemented = false;
                 this.state.noOp = true;
+
         }
 
         if (this.state.ir !== 0x00) {
@@ -273,6 +383,11 @@ export class Cpu {
         this.state.pc = (this.state.pc + 1) % 0x10000;
     }
 
+    private relAddress(offset: number) {
+        // Cast the offset to a signed byte to handle negative offsets
+        return (this.state.pc + numberToByte(offset)) & 0xffff;
+    }
+
     private delayLoop(opcode: number): void {
 
         const clockSteps = instructionClocksNmos[0xff & opcode];
@@ -306,5 +421,21 @@ export class Cpu {
         }
 
         return disassembleOp(opCode, args);
+    }
+
+    public getZeroFlag() {
+        return this.state.zeroFlag;
+    }
+
+    public getCarryFlag() {
+        return this.state.carryFlag;
+    }
+
+    public getNegativeFlag() {
+        return this.state.negativeFlag;
+    }
+
+    public getOverflowFlag() {
+        return this.state.overflowFlag;
     }
 }
