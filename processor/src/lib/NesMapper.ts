@@ -53,7 +53,6 @@ export class NesMapper {
         return this.buffer.readUInt32BE(NesOffset.MAGIC) === NesMapper.MAGIC_NUMBER;
     }
 
-    // TODO: create class definition for file
     public parse(): INesFile {
         assert(this.isNes(), 'Bad file signature');
 
