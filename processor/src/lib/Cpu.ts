@@ -136,21 +136,21 @@ export class Cpu {
         // Print system state
         if (this.state.ir !== 0x00) {
             console.log(`| pc = ${this.state.pc} | a = ${this.state.a} | x = ${this.state.x} | y = ${this.state.y} | sp = ${this.state.sp} |`)
-            var pilha1 = this.stackPop();
-            console.log(pilha1);
-
-            var pilha2 = this.stackPop();
-            console.log(pilha2);
-
-            var pilha3 = this.stackPop();
-            console.log(pilha3);
-
-            var pilha4 = this.stackPop();
-            console.log(pilha4);
-            this.stackPush(pilha4);
-            this.stackPush(pilha3);
-            this.stackPush(pilha2);
-            this.stackPush(pilha1);
+            // var pilha1 = this.stackPop();
+            // console.log(pilha1);
+            //
+            // var pilha2 = this.stackPop();
+            // console.log(pilha2);
+            //
+            // var pilha3 = this.stackPop();
+            // console.log(pilha3);
+            //
+            // var pilha4 = this.stackPop();
+            // console.log(pilha4);
+            // this.stackPush(pilha4);
+            // this.stackPush(pilha3);
+            // this.stackPush(pilha2);
+            // this.stackPush(pilha1);
         }
 
 
@@ -187,16 +187,7 @@ export class Cpu {
             //case 0x00: // BRK - Force Interrupt - Implied
             //  this.handleBrk(this.state.pc + 1);
             //  break;
-            case 0x08: // PHP - Push Processor Status - Implied
-                // Break flag is always set in the stack value.
-                this.stackPush(this.state.getStatusFlag() | 0x10);
-                break;
-            case 0x28: // PLP - Pull Processor Status - Implied
-                this.setProcessorStatus(this.stackPop());
-                break;
-            case 0x48: // PHA - Push Accumulator - Implied
-                this.stackPush(this.state.a);
-                break;
+
             // TAX
             case 0xaa:
                 this.state.x = this.state.a;
@@ -242,6 +233,7 @@ export class Cpu {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
                 break;
+            //NAO TESTADO AINDA!
             case 0x40: // RTI - Return from Interrupt - Implied
                 this.setProcessorStatus(this.stackPop());
                 var lo = this.stackPop();
@@ -253,6 +245,14 @@ export class Cpu {
                 lo = this.stackPop();
                 hi = this.stackPop();
                 this.setProgramCounter((address(lo, hi) + 1) & 0xffff);
+                break;
+            //NAO TESTADO AINDA!
+            case 0x20: // JSR - Jump to Subroutine - Implied
+                console.log(this.state.pc);
+                this.stackPush((this.state.pc - 1 >> 8) & 0xff); // PC high byte
+                console.log(this.state.pc);
+                this.stackPush(this.state.pc - 1 & 0xff);        // PC low byte
+                this.state.pc = address(this.state.args[0],this.state.args[1]);
                 break;
             // /** JMP *****************************************************************/
             // case 0x4c: // JMP - Absolute
