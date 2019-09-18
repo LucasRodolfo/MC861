@@ -120,7 +120,7 @@ export class Cpu {
 
         this.state.instSize = instructionSizes[this.state.ir];
         for (let i = 0; i < this.state.instSize - 1; i++) {
-            this.state.args[i] = this.bus.read(this.state.pc, true);
+            this.state.args[i] = this.bus.read(this.state.pc+1, true);
             this.incrementPC();
         }
 
@@ -130,33 +130,14 @@ export class Cpu {
         //this.state.a = this.state.pc;
         //this.state.carryFlag = true;
         //this.state.negativeFlag = true;
-        this.state.overflowFlag = true;
+        //this.state.overflowFlag = true;
         this.runInstruction(currentPC, irAddressMode, irOpMode);
 
         // Print system state
         if (this.state.ir !== 0x00) {
-            console.log(`| pc = ${this.state.pc} | a = ${this.state.a} | x = ${this.state.x} | y = ${this.state.y} | sp = ${this.state.sp} |`)
-            // var pilha1 = this.stackPop();
-            // console.log(pilha1);
-            //
-            // var pilha2 = this.stackPop();
-            // console.log(pilha2);
-            //
-            // var pilha3 = this.stackPop();
-            // console.log(pilha3);
-            //
-            // var pilha4 = this.stackPop();
-            // console.log(pilha4);
-            // this.stackPush(pilha4);
-            // this.stackPush(pilha3);
-            // this.stackPush(pilha2);
-            // this.stackPush(pilha1);
+            console.log(`| pc = ${this.state.pc} | a = ${this.state.a} | x = ${this.state.x} | y = ${this.state.y} | sp = ${this.state.sp} |`);
         }
-
-
-
         this.delayLoop(this.state.ir);
-
         this.peekAhead();
     }
 
@@ -196,7 +177,6 @@ export class Cpu {
                 if (this.getZeroFlag()) {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
-                this.state.zeroFlag = false;
                 break;
             case 0xd0: // BNE - Branch if Not Equal to Zero - Relative
                 if (!this.getZeroFlag()) {
@@ -240,7 +220,7 @@ export class Cpu {
                 var hi = this.stackPop();
                 this.setProgramCounter(address(lo, hi));
                 break;
-            //NAO TESTADO AINDA!
+
             case 0x60: // RTS - Return from Subroutine - Implied
                 lo = this.stackPop();
                 hi = this.stackPop();
@@ -248,11 +228,10 @@ export class Cpu {
                 break;
             //NAO TESTADO AINDA!
             case 0x20: // JSR - Jump to Subroutine - Implied
-                console.log(this.state.pc);
                 this.stackPush((this.state.pc - 1 >> 8) & 0xff); // PC high byte
-                console.log(this.state.pc);
                 this.stackPush(this.state.pc - 1 & 0xff);        // PC low byte
-                this.state.pc = address(this.state.args[0],this.state.args[1]);
+                this.state.pc = address(this.state.args[1],this.state.args[0]);
+
                 break;
             // /** JMP *****************************************************************/
             // case 0x4c: // JMP - Absolute
