@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import {Bus} from './Bus';
 import {CpuState} from './CpuState';
 import {disassembleOp, instructionClocksNmos, instructionSizes} from './disassembler';
-import {address, nanoseconds, wordToHex, byteToHex,numberToByte} from './utils';
+import {address, nanoseconds, numberToByte} from './utils';
 
 
 import {
@@ -126,37 +126,7 @@ export class Cpu {
         }
 
         this.state.stepCounter++;
-        //Usado para testar o TAX
-        //this.state.zeroFlag = false;
-        //this.state.a = this.state.pc;
-        //this.state.carryFlag = true;
-        //this.state.negativeFlag = true;
-        this.state.overflowFlag = true;
         this.runInstruction(currentPC, irAddressMode, irOpMode);
-
-        // Print system state
-        if (this.state.ir !== 0x00) {
-
-            console.log(`| pc = ${this.state.pc} | a = ${this.state.a} | x = ${this.state.x} | y = ${this.state.y} | sp = ${this.state.sp} |`)
-            var pilha1 = this.stackPop();
-            console.log(pilha1);
-
-            var pilha2 = this.stackPop();
-            console.log(pilha2);
-
-            var pilha3 = this.stackPop();
-            console.log(pilha3);
-
-            var pilha4 = this.stackPop();
-            console.log(pilha4);
-            this.stackPush(pilha4);
-            this.stackPush(pilha3);
-            this.stackPush(pilha2);
-            this.stackPush(pilha1);
-
-        }
-
-
 
         this.delayLoop(this.state.ir);
 
@@ -196,7 +166,7 @@ export class Cpu {
                         }
                         return this.xAddress(this.state.args[0], this.state.args[1]);
                     default:
-                        throw new Error(`Invalid irAddressMode=${irAddressMode}`);
+                        return 0;
                 }
             case 1:
                 switch (irAddressMode) {
@@ -222,7 +192,7 @@ export class Cpu {
                     case 7: // Absolute, X
                         return this.xAddress(this.state.args[0], this.state.args[1]);
                     default:
-                        throw new Error(`Invalid irAddressMode=${irAddressMode}`);
+                        return 0;
                 }
             case 3:
                 switch (irAddressMode) {
@@ -232,8 +202,10 @@ export class Cpu {
                     case 7: // Zero Page, Relative
                         return this.state.args[0];
                     default:
-                        throw new Error(`Invalid irAddressMode=${irAddressMode}`);
+                        return 0;
                 }
+            default:
+                return 0;
         }
     }
 
@@ -264,58 +236,60 @@ export class Cpu {
                 this.state.x = this.state.a;
                 break;
             case 0xf0: // BEQ - Branch if Equal to Zero - Relative
-                if (this.getZeroFlag()) {
+                if (this.state.zeroFlag) {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
                 this.state.zeroFlag = false;
                 break;
             case 0xd0: // BNE - Branch if Not Equal to Zero - Relative
-                if (!this.getZeroFlag()) {
+                if (!this.state.zeroFlag) {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
                 break;
             case 0x90: // BCC - Branch if Carry Clear - Relative
-                if (!this.getCarryFlag()) {
+                if (!this.state.carryFlag) {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
                 break;
             case 0xb0: // BCS - Branch if Carry Set - Relative
-                if (this.getCarryFlag()) {
+                if (this.state.carryFlag) {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
                 break;
             case 0x30: // BMI - Branch if Minus - Relative
-                if (this.getNegativeFlag()) {
+                if (this.state.negativeFlag) {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
                 break;
             case 0x10: // BPL - Branch if Positive - Relative
-                if (!this.getNegativeFlag()) {
+                if (!this.state.negativeFlag) {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
                 break;
             case 0x50: // BVC - Branch if Overflow Clear - Relative
-                if (!this.getOverflowFlag()) {
+                if (!this.state.overflowFlag) {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
                 break;
             case 0x70: // BVS - Branch if Overflow Set - Relative
-                if (this.getOverflowFlag()) {
+                if (this.state.overflowFlag) {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
                 break;
-            case 0x40: // RTI - Return from Interrupt - Implied
+            case 0x40: {    // RTI - Return from Interrupt - Implied
                 this.setProcessorStatus(this.stackPop());
-                var lo = this.stackPop();
-                var hi = this.stackPop();
+                const lo = this.stackPop();
+                const hi = this.stackPop();
                 this.setProgramCounter(address(lo, hi));
                 break;
+            }
             //NAO TESTADO AINDA!
-            case 0x60: // RTS - Return from Subroutine - Implied
-                lo = this.stackPop();
-                hi = this.stackPop();
+            case 0x60: {    // RTS - Return from Subroutine - Implied
+                const lo = this.stackPop();
+                const hi = this.stackPop();
                 this.setProgramCounter((address(lo, hi) + 1) & 0xffff);
                 break;
+            }
             // /** JMP *****************************************************************/
             // case 0x4c: // JMP - Absolute
             //     thi.state.pc = address(this.state.args[0], this.state.args[1]);
@@ -461,11 +435,6 @@ export class Cpu {
         return (this.state.pc + numberToByte(offset)) & 0xffff;
     }
 
-    private relAddress(offset: number) {
-        // Cast the offset to a signed byte to handle negative offsets
-        return (this.state.pc + numberToByte(offset)) & 0xffff;
-    }
-
     private delayLoop(opcode: number): void {
 
         const clockSteps = instructionClocksNmos[0xff & opcode];
@@ -499,21 +468,5 @@ export class Cpu {
         }
 
         return disassembleOp(opCode, args);
-    }
-
-    public getZeroFlag() {
-        return this.state.zeroFlag;
-    }
-
-    public getCarryFlag() {
-        return this.state.carryFlag;
-    }
-
-    public getNegativeFlag() {
-        return this.state.negativeFlag;
-    }
-
-    public getOverflowFlag() {
-        return this.state.overflowFlag;
     }
 }
