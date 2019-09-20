@@ -290,6 +290,13 @@ export class Cpu {
                 this.setProgramCounter((address(lo, hi) + 1) & 0xffff);
                 break;
             }
+            case 0x20: // JSR - Jump to Subroutine - Implied
+                this.stackPush((this.state.pc - 1 >> 8) & 0xff); // PC high byte
+                this.stackPush(this.state.pc - 1 & 0xff);        // PC low byte
+                this.state.pc = address(this.state.args[0], this.state.args[1]);
+                break;
+
+
             // /** JMP *****************************************************************/
             // case 0x4c: // JMP - Absolute
             //     thi.state.pc = address(this.state.args[0], this.state.args[1]);
