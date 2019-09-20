@@ -120,7 +120,8 @@ export class Cpu {
 
         this.state.instSize = instructionSizes[this.state.ir];
         for (let i = 0; i < this.state.instSize - 1; i++) {
-            this.state.args[i] = this.bus.read(this.state.pc+1, true);
+            this.state.args[i] = this.bus.read(this.state.pc, true);
+            console.log(this.state.args[i]);
             this.incrementPC();
         }
 
