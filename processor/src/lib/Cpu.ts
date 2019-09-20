@@ -212,7 +212,7 @@ export class Cpu {
     private runInstruction(currentPC: number, irAddressMode: number, irOpMode: number): void {
 
         const effectiveAddress = this.calculateEffectiveAddress(irAddressMode, irOpMode);
-
+        var memoryLog = '';
         let implemented = true;
 
         switch (this.state.ir) {
@@ -221,20 +221,6 @@ export class Cpu {
             //case 0x00: // BRK - Force Interrupt - Implied
             //  this.handleBrk(this.state.pc + 1);
             //  break;
-            case 0x08: // PHP - Push Processor Status - Implied
-                // Break flag is always set in the stack value.
-                this.stackPush(this.state.getStatusFlag() | 0x10);
-                break;
-            case 0x28: // PLP - Pull Processor Status - Implied
-                this.setProcessorStatus(this.stackPop());
-                break;
-            case 0x48: // PHA - Push Accumulator - Implied
-                this.stackPush(this.state.a);
-                break;
-            // TAX
-            case 0xaa:
-                this.state.x = this.state.a;
-                break;
             case 0xf0: // BEQ - Branch if Equal to Zero - Relative
                 if (this.state.zeroFlag) {
                     this.state.pc = this.relAddress(this.state.args[0]);
@@ -317,9 +303,8 @@ export class Cpu {
                 this.state.noOp = true;
 
         }
-
         if (this.state.ir !== 0x00) {
-            const text = this.state.toTraceEvent();
+            const text = this.state.toTraceEvent() + memoryLog;
             const formattedText = implemented ? chalk.green(text) : chalk.red(text);
             console.log(formattedText);
         }
