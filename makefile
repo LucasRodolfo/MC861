@@ -1,5 +1,5 @@
-CC=g++
-CCFLAGS=-std=gnu++11 -O3
+TSNODE=ts-node
+MAIN=./processor/src/cli.ts
 
 TST=./tst
 RES=./res
@@ -14,7 +14,7 @@ CROSS_AS=${EXT}/asm6/asm6
 all: ${BIN} ${LOG} ${NES}
 
 ${NES}:
-	${CC} ${CCFLAGS} main.cpp -o ${NES}
+	${TSNODE} ${MAIN} ${NES}
 
 ${BIN}:
 	@mkdir -p ${BIN}
