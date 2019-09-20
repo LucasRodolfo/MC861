@@ -77,13 +77,12 @@ export class CpuState {
         return status + '\t\t' +
             sprintf('%-14s', disassembleOp(this.ir, this.args)) +
             '\t\t' +
-            'PC: ' + wordToHex(this.pc) + '  ' +
-            'A: ' + byteToHex(this.a) + '  ' +
-            'X: ' + byteToHex(this.x) + '  ' +
-            'Y: ' + byteToHex(this.y) + '  ' +
-            'F: ' + byteToHex(this.getStatusFlag()) + '  ' +
-            'SP: ' + wordToHex(this.sp) + '  ' +
-            this.getProcessorStatusString();
+            '| pc = ' + wordToHex(this.pc) + ' | ' +
+            'a = ' + byteToHex(this.a) + ' | ' +
+            'x = ' + byteToHex(this.x) + ' | ' +
+            'y = ' + byteToHex(this.y) + ' | ' +
+            'sp = ' + wordToHex(this.sp) + ' | ' +
+            'Flags = ' + this.getProcessorStatusStringDebug() +' | ';
     }
 
     public getStatusFlag(): number {
@@ -135,5 +134,17 @@ export class CpuState {
             (this.irqDisableFlag ? '1' : '0') +
             (this.zeroFlag ? '1' : '0') +
             (this.carryFlag ? '1' : '0');
+    }
+
+    public getProcessorStatusStringDebug(): string {
+        return '[' + (this.negativeFlag ? 'N' : '.') +
+            (this.overflowFlag ? 'V' : '.') +
+            '-' +
+            (this.breakFlag ? 'B' : '.') +
+            (this.decimalModeFlag ? 'D' : '.') +
+            (this.irqDisableFlag ? 'I' : '.') +
+            (this.zeroFlag ? 'Z' : '.') +
+            (this.carryFlag ? 'C' : '.') +
+            ']';
     }
 }

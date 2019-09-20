@@ -305,6 +305,8 @@ export class Cpu {
         }
         if (this.state.ir !== 0x00) {
             const text = this.state.toTraceEvent() + memoryLog;
+            // FOR DEBUG USE NEXT LINE
+            //const text = this.state.toTraceEventDebug() + '\t\t' + memoryLog;
             const formattedText = implemented ? chalk.green(text) : chalk.red(text);
             console.log(formattedText);
         }
