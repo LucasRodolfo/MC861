@@ -62,17 +62,27 @@ export class CpuState {
     }
 
     public toTraceEvent(): string {
+        return '| ' +
+            'pc = ' + wordToHex(this.pc) + ' | ' +
+            'a = ' + byteToHex(this.a) + ' | ' +
+            'x = ' + byteToHex(this.x) + ' | ' +
+            'y = ' + byteToHex(this.y) + ' | ' +
+            'sp = ' + wordToHex(this.sp) + ' | ' +
+            'p[NV-BDIZC] = ' + this.getProcessorStatusString() +
+            ' |';
+    }
+
+    public toTraceEventDebug(): string {
         const status = this.getInstructionByteStatus();
         return status + '\t\t' +
             sprintf('%-14s', disassembleOp(this.ir, this.args)) +
             '\t\t' +
-            'PC: ' + wordToHex(this.pc) + '  ' +
-            'A: ' + byteToHex(this.a) + '  ' +
-            'X: ' + byteToHex(this.x) + '  ' +
-            'Y: ' + byteToHex(this.y) + '  ' +
-            'F: ' + byteToHex(this.getStatusFlag()) + '  ' +
-            'SP: ' + wordToHex(this.sp) + '  ' +
-            this.getProcessorStatusString();
+            '| pc = ' + wordToHex(this.pc) + ' | ' +
+            'a = ' + byteToHex(this.a) + ' | ' +
+            'x = ' + byteToHex(this.x) + ' | ' +
+            'y = ' + byteToHex(this.y) + ' | ' +
+            'sp = ' + wordToHex(this.sp) + ' | ' +
+            'Flags = ' + this.getProcessorStatusStringDebug() +' | ';
     }
 
     public getStatusFlag(): number {
@@ -116,6 +126,17 @@ export class CpuState {
     }
 
     public getProcessorStatusString(): string {
+        return (this.negativeFlag ? '1' : '0') +
+            (this.overflowFlag ? '1' : '0') +
+            '1' +
+            (this.breakFlag ? '1' : '0') +
+            (this.decimalModeFlag ? '1' : '0') +
+            (this.irqDisableFlag ? '1' : '0') +
+            (this.zeroFlag ? '1' : '0') +
+            (this.carryFlag ? '1' : '0');
+    }
+
+    public getProcessorStatusStringDebug(): string {
         return '[' + (this.negativeFlag ? 'N' : '.') +
             (this.overflowFlag ? 'V' : '.') +
             '-' +
