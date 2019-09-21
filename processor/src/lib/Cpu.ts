@@ -132,6 +132,7 @@ export class Cpu {
         //this.state.carryFlag = true;
         //this.state.negativeFlag = true;
         //this.state.overflowFlag = true;
+        //this.state.a = 175;
         this.runInstruction(currentPC, irAddressMode, irOpMode);
 
         // Print system state
@@ -214,6 +215,98 @@ export class Cpu {
                     this.state.pc = this.relAddress(this.state.args[0]);
                 }
                 break;
+
+            case 0x18: // CLC - Clear Carry Flag - Implied
+                this.state.carryFlag = false;
+                break;
+
+            case 0xd8: // CLD - Clear Decimal Mode - Implied
+                this.state.decimalModeFlag = false;
+                break;
+
+            case 0x58: // CLI - Clear Interrupt Disable - Implied
+                this.state.irqDisableFlag = false;
+                break;
+
+            case 0xb8: // CLV - Clear Overflow Flag - Implied
+                this.state.overflowFlag = false;
+                break;
+
+            /** CPX - Compare X Register ********************************************/
+            case 0xe0: // #Immediate
+                this.cmp(this.state.x, this.state.args[0]);
+                break;
+            case 0xe4: // Zero Page
+            case 0xec: // Absolute
+                this.cmp(this.state.x, this.bus.read(effectiveAddress, true));
+                break;
+
+            /** CPY - Compare Y Register ********************************************/
+            case 0xc0: // #Immediate
+                this.cmp(this.state.y, this.state.args[0]);
+                break;
+            case 0xc4: // Zero Page
+            case 0xcc: // Absolute
+                this.cmp(this.state.y, this.bus.read(effectiveAddress, true));
+                break;
+            /** CMP - Compare Accumulator *******************************************/
+            case 0xc9: // #Immediate
+                this.cmp(this.state.a, this.state.args[0]);
+                break;
+            case 0xd2: // 65C02 CMP (ZP)
+                break;
+            case 0xc1: // (Zero Page,X)
+            case 0xc5: // Zero Page
+            case 0xcd: // Absolute
+            case 0xd1: // (Zero Page),Y
+            case 0xd5: // Zero Page,X
+            case 0xd9: // Absolute,Y
+            case 0xdd: // Absolute,X
+                this.cmp(this.state.a, this.bus.read(effectiveAddress, true));
+                break;
+
+            /** EOR - Exclusive OR **************************************************/
+            case 0x49: // #Immediate
+
+                this.state.a ^= this.state.args[0];
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x52: // 65C02 EOR (ZP)
+                break;
+            case 0x41: // (Zero Page,X)
+            case 0x45: // Zero Page
+            case 0x4d: // Absolute
+            case 0x51: // (Zero Page,Y)
+            case 0x55: // Zero Page,X
+            case 0x59: // Absolute,Y
+            case 0x5d: // Absolute,X
+                this.state.a ^= this.bus.read(effectiveAddress, true);
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x38: // SEC - Set Carry Flag - Implied
+                this.state.carryFlag = true;
+                break;
+            case 0xf8: // SED - Set Decimal Flag - Implied
+                this.state.decimalModeFlag = true;
+                break;
+            case 0x78: // SEI - Set Interrupt Disable - Implied
+                this.state.irqDisableFlag = true;
+                break;
+            /** LSR - Logical Shift Right *******************************************/
+            case 0x4a: // Accumulator
+                this.state.a = 167;
+                this.state.a = this.lsr(this.state.a);
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x46: // Zero Page
+            case 0x4e: // Absolute
+            case 0x56: // Zero Page,X
+            case 0x5e: // Absolute,X
+                var tmp = this.lsr(this.bus.read(effectiveAddress, true));
+                this.bus.write(effectiveAddress, tmp);
+                this.setArithmeticFlags(tmp);
+                break;
+
             //NAO TESTADO AINDA!
             case 0x40: // RTI - Return from Interrupt - Implied
                 this.setProcessorStatus(this.stackPop());
@@ -232,7 +325,6 @@ export class Cpu {
                 this.stackPush((this.state.pc - 1 >> 8) & 0xff); // PC high byte
                 this.stackPush(this.state.pc - 1 & 0xff);        // PC low byte
                 this.state.pc = address(this.state.args[1],this.state.args[0]);
-
                 break;
             // /** JMP *****************************************************************/
             // case 0x4c: // JMP - Absolute
@@ -417,5 +509,32 @@ export class Cpu {
 
     public getOverflowFlag() {
         return this.state.overflowFlag;
+    }
+
+    public setCarryFlag(carryFlag: boolean) {
+        this.state.carryFlag = carryFlag;
+    }
+
+    public setZeroFlag(zeroFlag: boolean) {
+        this.state.zeroFlag = zeroFlag;
+    }
+
+    public setNegativeFlag(negativeFlag: boolean) {
+        this.state.negativeFlag = negativeFlag;
+    }
+    private setArithmeticFlags(reg: number):void {
+        this.state.zeroFlag = (reg == 0);
+        this.state.negativeFlag = (reg & 0x80) != 0;
+    }
+    private lsr(m: number) {
+        this.setCarryFlag((m & 0x01) != 0);
+        return (m & 0xff) >>> 1;
+    }
+
+    private cmp(reg: number, operand: number) {
+        var tmp = (reg - operand) & 0xff;
+        this.setCarryFlag(reg >= operand);
+        this.setZeroFlag(tmp == 0);
+        this.setNegativeFlag((tmp & 0x80) != 0); // Negative bit set
     }
 }
