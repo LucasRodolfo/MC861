@@ -1,12 +1,11 @@
-TSNODE=ts-node
-MAIN=./processor/src/cli.ts
+EXECUTAR=ts-node ./src/cli.ts
 
 TST=./tst
 RES=./res
 BIN=./bin
 LOG=./log
 EXT=./ext
-NES=./bin/nesemu
+NES=./bin/
 
 TESTS=$(addprefix ${BIN}/, $(notdir $(patsubst %.s,%,$(sort $(wildcard ${TST}/*.s)))))
 CROSS_AS=${EXT}/asm6/asm6
@@ -33,7 +32,9 @@ test: ${BIN} ${LOG} ${NES} ${TESTS}
 			result="${LOG}/$$(basename $$test).log"; \
 			expected="${RES}/$$(basename $$test).r"; \
 			printf "Running $$test: "; \
-			${NES} $$test > $$result 2>&1; \
+			cd processor; \
+			${EXECUTAR} ../$$test > ../$$result 2>&1; \
+			cd ..; \
 			errors=`diff -y --suppress-common-lines $$expected $$result | grep '^' | wc -l`; \
 			if [ "$$errors" -eq 0 ]; then \
 				printf "\033[0;32mPASSED\033[0m\n"; \
