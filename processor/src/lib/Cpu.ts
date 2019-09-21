@@ -3,15 +3,12 @@ import chalk from 'chalk';
 import {Bus} from './Bus';
 import {CpuState} from './CpuState';
 import {disassembleOp, instructionClocksNmos, instructionSizes} from './disassembler';
-import {address, nanoseconds, numberToByte} from './utils';
+import {decodeAddress, nanoseconds, numberToByte} from './utils';
 
 
 import {
+    ADDRESS,
     DEFAULT_CLOCK_PERIOD_IN_NS,
-    IRQ_VECTOR_H,
-    IRQ_VECTOR_L,
-    NMI_VECTOR_H,
-    NMI_VECTOR_L,
     P_BREAK,
     P_CARRY,
     P_DECIMAL,
@@ -19,10 +16,7 @@ import {
     P_NEGATIVE,
     P_OVERFLOW,
     P_ZERO,
-    ROM_SIZE,
-    RST_VECTOR_H,
-    RST_VECTOR_L,
-    STACK_ADDRESS
+    ROM_SIZE
 } from './constants';
 
 export class Cpu {
@@ -67,7 +61,7 @@ export class Cpu {
     public reset(): void {
         this.state.sp = 0xff;
 
-        this.state.pc = address(this.bus.read(RST_VECTOR_L, true), this.bus.read(RST_VECTOR_H, true));
+        this.state.pc = this.bus.readWord(ADDRESS.RST, true);
 
         this.state.ir = 0;
 
@@ -110,7 +104,7 @@ export class Cpu {
         }
 
         const currentPC = this.state.pc;
-        this.state.ir = this.bus.read(currentPC, true);
+        this.state.ir = this.bus.readByte(currentPC, true);
 
         const irAddressMode = (this.state.ir >> 2) & 0x07;
         const irOpMode = this.state.ir & 0x03;
@@ -121,7 +115,7 @@ export class Cpu {
 
         this.state.instSize = instructionSizes[this.state.ir];
         for (let i = 0; i < this.state.instSize - 1; i++) {
-            this.state.args[i] = this.bus.read(this.state.pc, true);
+            this.state.args[i] = this.bus.readByte(this.state.pc, true);
             this.incrementPC();
         }
 
@@ -146,7 +140,7 @@ export class Cpu {
                     case 2: // Accumulator - ignored
                         return 0;
                     case 3: // Absolute
-                        return address(this.state.args[0], this.state.args[1]);
+                        return decodeAddress(this.state.args[0], this.state.args[1]);
                     case 4: // 65C02 (Zero Page)
                         return 0;
                     case 5: // Zero Page,X / Zero Page,Y
@@ -159,7 +153,7 @@ export class Cpu {
                         }
                     case 7:
                         if (this.state.ir === 0x9c || this.state.ir === 0x1c) { // 65C02 STZ & TRB Absolute
-                            return address(this.state.args[0], this.state.args[1]);
+                            return decodeAddress(this.state.args[0], this.state.args[1]);
                         }
                         if (this.state.ir === 0xbe) { // Absolute,X / Absolute,Y
                             return this.yAddress(this.state.args[0], this.state.args[1]);
@@ -172,17 +166,17 @@ export class Cpu {
                 switch (irAddressMode) {
                     case 0: {   // (Zero Page,X)
                         const tmp = (this.state.args[0] + this.state.x) & 0xff;
-                        return address(this.bus.read(tmp, true), this.bus.read(tmp + 1, true));
+                        return decodeAddress(this.bus.readByte(tmp, true), this.bus.readByte(tmp + 1, true));
                     }
                     case 1: // Zero Page
                         return this.state.args[0];
                     case 2: // #Immediate
                         return -1;
                     case 3: // Absolute
-                        return address(this.state.args[0], this.state.args[1]);
+                        return decodeAddress(this.state.args[0], this.state.args[1]);
                     case 4: {   // (Zero Page),Y
-                        const tmp = address(this.bus.read(this.state.args[0], true),
-                            this.bus.read((this.state.args[0] + 1) & 0xff, true));
+                        const tmp = decodeAddress(this.bus.readByte(this.state.args[0], true),
+                            this.bus.readByte((this.state.args[0] + 1) & 0xff, true));
                         return (tmp + this.state.y) & 0xffff;
                     }
                     case 5: // Zero Page,X
@@ -212,7 +206,6 @@ export class Cpu {
     private runInstruction(currentPC: number, irAddressMode: number, irOpMode: number): void {
 
         const effectiveAddress = this.calculateEffectiveAddress(irAddressMode, irOpMode);
-        var memoryLog = '';
         let implemented = true;
 
         switch (this.state.ir) {
@@ -266,43 +259,48 @@ export class Cpu {
                 this.setProcessorStatus(this.stackPop());
                 const lo = this.stackPop();
                 const hi = this.stackPop();
-                this.setProgramCounter(address(lo, hi));
-                break;
-            }
-            //NAO TESTADO AINDA!
-            case 0x60: {    // RTS - Return from Subroutine - Implied
-                const lo = this.stackPop();
-                const hi = this.stackPop();
-                this.setProgramCounter((address(lo, hi) + 1) & 0xffff);
+                this.setProgramCounter(decodeAddress(lo, hi));
                 break;
             }
             case 0x20: // JSR - Jump to Subroutine - Implied
                 this.stackPush((this.state.pc - 1 >> 8) & 0xff); // PC high byte
                 this.stackPush(this.state.pc - 1 & 0xff);        // PC low byte
-                this.state.pc = address(this.state.args[0], this.state.args[1]);
+                this.state.pc = decodeAddress(this.state.args[0], this.state.args[1]);
+                break;
+            //NAO TESTADO AINDA!
+            case 0x60: {    // RTS - Return from Subroutine - Implied
+                const lo = this.stackPop();
+                const hi = this.stackPop();
+                this.setProgramCounter((decodeAddress(lo, hi) + 1) & 0xffff);
+                break;
+            }
+            case 0x20: // JSR - Jump to Subroutine - Implied
+                this.stackPush((this.state.pc - 1 >> 8) & 0xff); // PC high byte
+                this.stackPush(this.state.pc - 1 & 0xff);        // PC low byte
+                this.state.pc = decodeAddress(this.state.args[0], this.state.args[1]);
                 break;
 
 
             // /** JMP *****************************************************************/
             // case 0x4c: // JMP - Absolute
-            //     thi.state.pc = address(this.state.args[0], this.state.args[1]);
+            //     thi.state.pc = decodeAddress(this.state.args[0], this.state.args[1]);
             //     break;
             // case 0x6c: // JMP - Indirect
-            //     lo = address(this.state.args[0], this.state.args[1]); // Address of low byte
+            //     lo = decodeAddress(this.state.args[0], this.state.args[1]); // Address of low byte
             //
             //     if (this.state.args[0] == 0xff) {
-            //         hi = address(0x00, this.state.args[1]);
+            //         hi = decodeAddress(0x00, this.state.args[1]);
             //     } else {
             //         hi = lo + 1;
             //     }
             //
-            //     this.state.pc = address(bus.read(lo, true), bus.read(hi, true));
+            //     this.state.pc = decodeAddress(bus.readByte(lo, true), bus.readByte(hi, true));
             //     break;
             // case 0x7c: // 65C02 JMP - (Absolute Indexed Indirect,X)
             //     break;
             //     lo = (((this.state.args[1] << 8) | this.state.args[0]) + this.state.x) & 0xffff;
             //     hi = lo + 1;
-            //     this.state.pc = address(bus.read(lo, true), bus.read(hi, true));
+            //     this.state.pc = decodeAddress(bus.readByte(lo, true), bus.readByte(hi, true));
             //     break;
 
             default:
@@ -311,9 +309,11 @@ export class Cpu {
 
         }
         if (this.state.ir !== 0x00) {
-            const text = this.state.toTraceEvent() + memoryLog;
-            // FOR DEBUG USE NEXT LINE
-            //const text = this.state.toTraceEventDebug() + '\t\t' + memoryLog;
+
+            const text = process.env.NODE_ENV === 'DEBUG'
+                ? this.state.toTraceEventDebug()
+                : this.state.toTraceEvent();
+
             const formattedText = implemented ? chalk.green(text) : chalk.red(text);
             console.log(formattedText);
         }
@@ -321,32 +321,32 @@ export class Cpu {
 
     private peekAhead(): void {
 
-        this.state.nextIr = this.bus.read(this.state.pc, true);
+        this.state.nextIr = this.bus.readByte(this.state.pc, true);
 
         const nextInstSize = instructionSizes[this.state.nextIr];
 
         for (let i = 1; i < nextInstSize; i++) {
             const nextRead = (this.state.pc + i) % this.bus.endAddress;
-            this.state.nextArgs[i - 1] = this.bus.read(nextRead, true);
+            this.state.nextArgs[i - 1] = this.bus.readByte(nextRead, true);
         }
     }
 
     private handleBrk(returnPc: number): void {
-        this.handleInterrupt(returnPc, IRQ_VECTOR_L, IRQ_VECTOR_H, true);
+        this.handleInterrupt(returnPc, ADDRESS.IRQ, true);
         this.state.irqAsserted = false;
     }
 
     private handleIrq(returnPc: number): void {
-        this.handleInterrupt(returnPc, IRQ_VECTOR_L, IRQ_VECTOR_H, false);
+        this.handleInterrupt(returnPc, ADDRESS.IRQ, false);
         this.state.irqAsserted = false;
     }
 
     private handleNmi(): void {
-        this.handleInterrupt(this.state.pc, NMI_VECTOR_L, NMI_VECTOR_H, false);
+        this.handleInterrupt(this.state.pc, ADDRESS.NMI, false);
         this.state.nmiAsserted = false;
     }
 
-    private handleInterrupt(returnPc: number, vectorLow: number, vectorHigh: number, isBreak: boolean): void {
+    private handleInterrupt(returnPc: number, address16: number, isBreak: boolean): void {
 
         this.state.breakFlag = isBreak;
 
@@ -356,11 +356,11 @@ export class Cpu {
 
         this.state.irqDisableFlag = true;
 
-        this.state.pc = address(this.bus.read(vectorLow, true), this.bus.read(vectorHigh, true));
+        this.state.pc = this.bus.readWord(address16, true);
     }
 
     public stackPush(data: number) {
-        this.bus.write(STACK_ADDRESS + this.state.sp, data);
+        this.bus.write(ADDRESS.STACK + this.state.sp, data);
 
         if (this.state.sp === 0) {
             this.state.sp = 0xff;
@@ -377,11 +377,11 @@ export class Cpu {
             this.state.sp++;
         }
 
-        return this.bus.read(STACK_ADDRESS + this.state.sp, true);
+        return this.bus.readByte(ADDRESS.STACK + this.state.sp, true);
     }
 
     public stackPeek() {
-        return this.bus.read(STACK_ADDRESS + this.state.sp + 1, true);
+        return this.bus.readByte(ADDRESS.STACK + this.state.sp + 1, true);
     }
 
     public setProgramCounter(addr: number): void {
@@ -410,11 +410,11 @@ export class Cpu {
     }
 
     private xAddress(lowByte: number, hiByte: number): number {
-        return (address(lowByte, hiByte) + this.state.x) & 0xffff;
+        return (decodeAddress(lowByte, hiByte) + this.state.x) & 0xffff;
     }
 
     private yAddress(lowByte: number, hiByte: number) {
-        return (address(lowByte, hiByte) + this.state.y) & 0xffff;
+        return (decodeAddress(lowByte, hiByte) + this.state.y) & 0xffff;
     }
 
     private zpxAddress(zp: number) {
@@ -452,13 +452,13 @@ export class Cpu {
 
     public disassembleOpAtAddress(addr: number): string {
 
-        const opCode = this.bus.read(addr, true);
+        const opCode = this.bus.readByte(addr, true);
         const args = [0, 0];
 
         const size = instructionSizes[opCode];
         for (let i = 1; i < size; i++) {
             const nextRead = (addr + i) % this.bus.endAddress;
-            args[i - 1] = this.bus.read(nextRead, true);
+            args[i - 1] = this.bus.readByte(nextRead, true);
         }
 
         return disassembleOp(opCode, args);

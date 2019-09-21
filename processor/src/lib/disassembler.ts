@@ -1,4 +1,4 @@
-import {address, byteToHex, wordToHex} from './utils';
+import {decodeAddress, byteToHex, wordToHex} from './utils';
 
 export enum Mode {
     ACC = 'Accumulator',
@@ -176,17 +176,17 @@ function addressing(opCode: number, args: number[]): string {
 
     switch (instructionModes[opCode]) {
         case Mode.ABS:
-            return ` $${wordToHex(address(args[0], args[1]))}`;
+            return ` $${wordToHex(decodeAddress(args[0], args[1]))}`;
         case Mode.AIX:
-            return ` ($${wordToHex(address(args[0], args[1]))},X)`;
+            return ` ($${wordToHex(decodeAddress(args[0], args[1]))},X)`;
         case Mode.ABX:
-            return ` $${wordToHex(address(args[0], args[1]))},X`;
+            return ` $${wordToHex(decodeAddress(args[0], args[1]))},X`;
         case Mode.ABY:
-            return ` $${wordToHex(address(args[0], args[1]))},Y`;
+            return ` $${wordToHex(decodeAddress(args[0], args[1]))},Y`;
         case Mode.IMM:
             return ` #$${byteToHex(args[0])}`;
         case Mode.IND:
-            return ` ($${wordToHex(address(args[0], args[1]))})`;
+            return ` ($${wordToHex(decodeAddress(args[0], args[1]))})`;
         case Mode.XIN:
             return ` ($${byteToHex(args[0])},X)`;
         case Mode.INY:

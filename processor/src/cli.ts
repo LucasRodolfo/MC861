@@ -2,12 +2,13 @@ import * as fs from 'fs-extra';
 import * as process from 'process';
 
 import {Bus} from './lib/Bus';
-import {DEFAULT_END_ADDRESS, DEFAULT_LOAD_ADDRESS, DEFAULT_START_ADDRESS} from './lib/constants';
+import {ADDRESS, DEFAULT_END_ADDRESS, SIZE} from './lib/constants';
 import {Cpu} from './lib/Cpu';
 import {CpuState} from './lib/CpuState';
 import {Device} from './lib/devices/Device';
 import {RomDevice} from './lib/devices/RomDevice';
 import {NesMapper} from './lib/NesMapper';
+import {RamDevice} from './lib/devices/RamDevice';
 
 export async function runNes(nesPath: string) {
 
@@ -16,11 +17,23 @@ export async function runNes(nesPath: string) {
     const mapper = new NesMapper(nes);
     const nesFile = mapper.parse();
 
-    const rom: Device = new RomDevice(DEFAULT_START_ADDRESS, DEFAULT_END_ADDRESS, 'ROM');
-
     const bus: Bus = new Bus();
-    bus.addDevice(rom, 0);
-    bus.loadProgram(DEFAULT_LOAD_ADDRESS, nesFile.roms[0]);
+
+    // TODO: map other devices
+    const ram: Device = new RamDevice(ADDRESS.ZERO_PAGE, ADDRESS.PRG_ROM - 1, 'RAM');
+    bus.addDevice(ram);
+
+    // TODO: make it work
+    // const romBuffer = nesFile.roms.reduce((bigBuffer, smallBuffer) => {
+    //     return Buffer.concat([bigBuffer, smallBuffer]);
+    // }, Buffer.alloc(0));
+
+    // TODO: remove this workaround
+    const romBuffer = Buffer.concat([nesFile.roms[1] || Buffer.alloc(SIZE.PRG_ROM), nesFile.roms[0]]);
+
+    const rom: Device = new RomDevice(ADDRESS.PRG_ROM, DEFAULT_END_ADDRESS, 'PRG_ROM', romBuffer);
+
+    bus.addDevice(rom);
 
     const state: CpuState = new CpuState();
 
@@ -44,5 +57,6 @@ export async function runNes(nesPath: string) {
 
 // tslint:disable:no-empty
 runNes(process.argv[2])
-    .then(() => {})
+    .then(() => {
+    })
     .catch((err: Error) => console.error(err));

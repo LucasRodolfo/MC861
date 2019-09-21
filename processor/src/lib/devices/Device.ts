@@ -8,8 +8,6 @@ export abstract class Device {
 
     protected _name: string;
 
-    // TODO: implement DeviceChangeListener
-
     public constructor(startAddress: number, endAddress: number, name: string) {
         this.memoryRange = new MemoryRange(startAddress, endAddress);
         this.size = endAddress - startAddress + 1;
@@ -42,7 +40,9 @@ export abstract class Device {
 
     public abstract write(address: number, data: number): void;
 
-    public abstract read(address: number, cpuAccess: boolean): number;
+    public abstract writeBuffer(address: number, buffer: Buffer): void;
+
+    public abstract readByte(address: number, cpuAccess: boolean): number;
 
     public abstract toString(): string;
 }

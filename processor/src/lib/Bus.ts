@@ -3,6 +3,7 @@ import {sprintf} from 'sprintf-js';
 import {DEFAULT_END_ADDRESS, DEFAULT_START_ADDRESS} from './constants';
 import {Device} from './devices/Device';
 import {MemoryAccessException, MemoryRangeException} from './exceptions';
+import {decodeAddress, high, low} from './utils';
 
 export class Bus {
 
@@ -83,31 +84,48 @@ export class Bus {
         return true;
     }
 
-    public read(address: number, cpuAccess: boolean): number {
+    public readByte(address8: number, cpuAccess: boolean): number {
 
-        const device = this.deviceAddressArray[address - this.startAddress];
+        const device = this.deviceAddressArray[address8 - this.startAddress];
         if (!device) {
-            throw new MemoryAccessException(sprintf('Bus read failed. No device at address $%04X', address));
+            throw new MemoryAccessException(sprintf('Bus read failed. No device at address $%04X', address8));
         }
 
-        const deviceAddress = address - device.memoryRange.startAddress;
-        return device.read(deviceAddress, cpuAccess) & 0xff;
+        const deviceAddress = address8 - device.memoryRange.startAddress;
+        return device.readByte(deviceAddress, cpuAccess) & 0xff;
+    }
+
+    public readWord(address16: number, cpuAccess: boolean): number {
+        const lo = this.readByte(address16, cpuAccess);
+        const hi = this.readByte(address16 + 1, cpuAccess);
+        return decodeAddress(lo, hi);
     }
 
     public write(address: number, value: number): void {
+
+        const device = this.deviceAt(address);
+
+        const deviceAddress = address - device.memoryRange.startAddress;
+
+        device.write(deviceAddress, value);
+    }
+
+    public writeBuffer(address: number, buffer: Buffer): void {
+
+        const device = this.deviceAt(address);
+
+        const deviceAddress = address - device.memoryRange.startAddress;
+
+        device.writeBuffer(deviceAddress, buffer);
+    }
+
+    private deviceAt(address: number): Device {
 
         const device = this.deviceAddressArray[address - this.startAddress];
         if (!device) {
             throw new MemoryAccessException(sprintf('Bus write failed. No device at address $%04X', address));
         }
 
-        const deviceAddress = address - device.memoryRange.startAddress;
-        device.write(deviceAddress, value);
-    }
-
-    public loadProgram(address: number, program: number[] | Uint8Array): void {
-        program.forEach((byte: number, i: number) => {
-            this.write(address + i, byte);
-        });
+        return device;
     }
 }

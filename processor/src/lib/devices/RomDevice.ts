@@ -2,21 +2,26 @@ import {Device} from './Device';
 
 export class RomDevice extends Device {
 
-    private readonly _buffer: Uint8Array;
+    protected readonly _buffer: Buffer;
 
-    public constructor(startAddress: number, endAddress: number, name: string) {
+    public constructor(startAddress: number, endAddress: number, name: string, buffer: Buffer) {
 
         super(startAddress, endAddress, name);
 
-        this._buffer = new Uint8Array(endAddress - startAddress);
+        this._buffer = Buffer.alloc(endAddress - startAddress, 0);
+        buffer.copy(this._buffer);
     }
 
-    public read(address: number, cpuAccess: boolean): number {
-        return this._buffer[this._memoryRange.startAddress + address];
+    public readByte(address: number, cpuAccess: boolean): number {
+        return this._buffer[address];
     }
 
     public write(address: number, data: number): void {
-        this._buffer[this._memoryRange.startAddress + address] = data;
+        throw new Error('Cannot write into ROM');
+    }
+
+    public writeBuffer(address: number, buffer: Buffer): void {
+        throw new Error('Cannot write into ROM');
     }
 
     public toString(): string {

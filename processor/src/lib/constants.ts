@@ -7,20 +7,30 @@ export const P_BREAK       = 0x10;
 export const P_OVERFLOW    = 0x40;
 export const P_NEGATIVE    = 0x80;
 
-export const NMI_VECTOR_L = 0xfffa;
-export const NMI_VECTOR_H = 0xfffb;
-
-export const RST_VECTOR_L = 0xfffc;
-export const RST_VECTOR_H = 0xfffd;
-
-export const IRQ_VECTOR_L = 0xfffe;
-export const IRQ_VECTOR_H = 0xffff;
-
 export const DEFAULT_CLOCK_PERIOD_IN_NS: number = 1000;
 
 export const ROM_SIZE: number = 0xffff;
-export const STACK_ADDRESS: number = 0x100;
 
 export const DEFAULT_START_ADDRESS: number  = 0x0000;
 export const DEFAULT_END_ADDRESS: number    = ROM_SIZE;
-export const DEFAULT_LOAD_ADDRESS: number   = 0x0200;
+
+// https://en.wikibooks.org/wiki/NES_Programming
+
+// tslint:disable:object-literal-sort-keys
+export const ADDRESS = {
+    ZERO_PAGE: 0x0000,
+    STACK: 0x0100,
+    RAM: 0x0200,
+    IO8: 0x2000,
+    IO32: 0x4000,
+    SRAM: 0x6000,
+    PRG_ROM: 0x8000,
+    NMI: 0xfffa,
+    RST: 0xfffc,
+    IRQ: 0xfffe
+};
+
+export const SIZE = {
+    ZERO_PAGE: ADDRESS.STACK - ADDRESS.ZERO_PAGE,
+    PRG_ROM: 0x4000
+};
