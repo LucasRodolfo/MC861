@@ -19,6 +19,7 @@ ${BIN}:
 	@mkdir -p ${BIN}
 
 ${BIN}/%: ${TST}/%.s
+	gcc -o ./ext/asm6/asm6 ./ext/asm6/asm6.c
 	${CROSS_AS} $^ $@
 
 ${LOG}:
@@ -28,6 +29,7 @@ test: ${BIN} ${LOG} ${NES} ${TESTS}
 	@{  echo "************************* Tests ******************************"; \
 		test_failed=0; \
 		test_passed=0; \
+		pwd; \
 		for test in ${TESTS}; do \
 			result="${LOG}/$$(basename $$test).log"; \
 			expected="${RES}/$$(basename $$test).r"; \
@@ -62,3 +64,4 @@ setup:
 
 clean:
 	rm -rf ${BIN}/* ${LOG}/*
+	rm -f ./ext/asm6/asm6
