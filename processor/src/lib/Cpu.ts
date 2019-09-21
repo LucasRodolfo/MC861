@@ -294,7 +294,6 @@ export class Cpu {
                 break;
             /** LSR - Logical Shift Right *******************************************/
             case 0x4a: // Accumulator
-                this.state.a = 167;
                 this.state.a = this.lsr(this.state.a);
                 this.setArithmeticFlags(this.state.a);
                 break;
@@ -305,6 +304,24 @@ export class Cpu {
                 var tmp = this.lsr(this.bus.read(effectiveAddress, true));
                 this.bus.write(effectiveAddress, tmp);
                 this.setArithmeticFlags(tmp);
+                break;
+            /** AND - Logical AND ***************************************************/
+            case 0x29: // #Immediate
+                this.state.a = 199;
+                this.state.a &= this.state.args[0];
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x32: // 65C02 AND (ZP)
+                break;
+            case 0x21: // (Zero Page,X)
+            case 0x25: // Zero Page
+            case 0x2d: // Absolute
+            case 0x31: // (Zero Page),Y
+            case 0x35: // Zero Page,X
+            case 0x39: // Absolute,Y
+            case 0x3d: // Absolute,X
+                this.state.a &= this.bus.read(effectiveAddress, true);
+                this.setArithmeticFlags(this.state.a);
                 break;
 
             //NAO TESTADO AINDA!
