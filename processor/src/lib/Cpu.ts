@@ -120,10 +120,10 @@ export class Cpu {
         }
 
         this.state.stepCounter++;
+
         this.runInstruction(currentPC, irAddressMode, irOpMode);
 
         this.delayLoop(this.state.ir);
-
         this.peekAhead();
     }
 
@@ -209,16 +209,198 @@ export class Cpu {
         let implemented = true;
 
         switch (this.state.ir) {
+        //case 0x00: // BRK - Force Interrupt - Implied
+        //  this.handleBrk(this.state.pc + 1);
+        //  break;
+        
+        // ADC
+        case 0x69:  // Imediato
+            if (this.state.decimalModeFlag) {
+                this.state.a = this.adcDecimal(this.state.a, this.state.args[0]);
+            } else {
+                this.state.a = this.adc(this.state.a, this.state.args[0]);
+            }
+            break;
+        case 0x61: // (Zero Page,X)
+        case 0x65: // Zero Page
+        case 0x6d: // Absolute
+        case 0x71: // (Zero Page),Y
+        case 0x75: // Zero Page,X
+        case 0x79: // Absolute,Y
+        case 0x7d: // Absolute,X
+            if (this.state.decimalModeFlag) {
+                this.state.a = this.adcDecimal(this.state.a, this.bus.readWord(effectiveAddress, true));
+            } else {
+                this.state.a = this.adc(this.state.a, this.bus.readWord(effectiveAddress, true));
+            }
+            break;
+        // DEC - TESTAR
+        case 0xc6: // Zero Page
+        case 0xce: // Absolute
+        case 0xd6: // Zero Page,X
+        case 0xde: // Absolute,X
+            var tmp = (this.bus.readWord(effectiveAddress, true) - 1) & 0xff;
+            this.bus.write(effectiveAddress, tmp);
+            this.setArithmeticFlags(tmp);
+            break;
+        // DEX 
+        case 0xca: 
+            this.state.x = --this.state.x & 0xff;
+            this.setArithmeticFlags(this.state.x);
+            break;
+        // DEY
+        case 0x88: 
+            this.state.y = --this.state.y & 0xff;
+            this.setArithmeticFlags(this.state.y);
+            break;
+        // INC - TESTAR
+        case 0xe6: // Zero Page
+        case 0xee: // Absolute
+        case 0xf6: // Zero Page,X
+        case 0xfe: // Absolute,X
+            var tmp = (this.bus.readWord(effectiveAddress, true) + 1) & 0xff;
+            this.bus.write(effectiveAddress, tmp);
+            this.setArithmeticFlags(tmp);
+            break;
+        // INX
+        case 0xe8:
+            this.state.x = ++this.state.x & 0xff;
+            this.setArithmeticFlags(this.state.x);
+            break;
+        // INY
+        case 0xc8:
+            this.state.y = ++this.state.y & 0xff;
+            this.setArithmeticFlags(this.state.y);
+            break;
+        // LDA
+        case 0xa9: // Imediato
+            this.state.a = this.state.args[0];
+            this.setArithmeticFlags(this.state.a);
+            break;
+        case 0xa1: // (Zero Page,X)
+        case 0xa5: // Zero Page
+        case 0xad: // Absolute
+        case 0xb1: // (Zero Page),Y
+        case 0xb5: // Zero Page,X
+        case 0xb9: // Absolute,Y
+        case 0xbd: // Absolute,X
+            this.state.a = this.bus.readWord(effectiveAddress, true);
+            this.setArithmeticFlags(this.state.a);
+            break;
+        // LDX
+        case 0xa2: // Imediato
+            this.state.x = this.state.args[0];
+            this.setArithmeticFlags(this.state.x);
+            break;
+        case 0xa6: // Zero Page
+        case 0xae: // Absolute
+        case 0xb6: // Zero Page,Y
+        case 0xbe: // Absolute,Y
+            this.state.x = this.bus.readWord(effectiveAddress, true);
+            this.setArithmeticFlags(this.state.x);
+            break;
+        // LDY
+        case 0xa0: // Imediato
+            this.state.y = this.state.args[0];
+            this.setArithmeticFlags(this.state.y);
+            break;
+        case 0xa4: // Zero Page
+        case 0xac: // Absolute
+        case 0xb4: // Zero Page,X
+        case 0xbc: // Absolute,X
+            this.state.y = this.bus.readWord(effectiveAddress, true);
+            this.setArithmeticFlags(this.state.y);
+            break;
+        // PHA
+        case 0x48: // PHA
+            this.stackPush(this.state.a);
+            break;
+        // PHP
+        case 0x08: // PHP
+            this.stackPush(this.state.getStatusFlag());
+            break;
+        // PLA
+        case 0x68:
+            this.state.a = this.stackPop();
+            this.setArithmeticFlags(this.state.a);
+            break;
+        // PLP
+        case 0x28:
+            this.setProcessorStatus(this.stackPop());
+            break;
+        // SBC
+        case 0xe9: // Imediato
+            if (this.state.decimalModeFlag) {
+                this.state.a = this.sbcDecimal(this.state.a, this.state.args[0]);
+            } else {
+                this.state.a = this.sbc(this.state.a, this.state.args[0]);
+            }
+            break;
+        case 0xe1: // (Zero Page,X)
+        case 0xe5: // Zero Page
+        case 0xed: // Absolute
+        case 0xf1: // (Zero Page),Y
+        case 0xf5: // Zero Page,X
+        case 0xf9: // Absolute,Y
+        case 0xfd: // Absolute,X
+            if (this.state.decimalModeFlag) {
+                this.state.a = this.sbcDecimal(this.state.a, this.bus.readWord(effectiveAddress, true));
+            } else {
+                this.state.a = this.sbc(this.state.a, this.bus.readWord(effectiveAddress, true));
+            }
+            break;
+        // STA
+        case 0x81: // (Zero Page,X)
+        case 0x85: // Zero Page
+        case 0x8d: // Absolute
+        case 0x91: // (Zero Page),Y
+        case 0x95: // Zero Page,X
+        case 0x99: // Absolute,Y
+        case 0x9d: // Absolute,X
+            this.bus.write(effectiveAddress, this.state.a);
+            break;
+        // STX
+        case 0x86: // Zero Page
+        case 0x8e: // Absolute
+        case 0x96: // Zero Page,Y
+            this.bus.write(effectiveAddress, this.state.x);
+            break;
+        // STY
+        case 0x84: // Zero Page
+        case 0x8c: // Absolute
+        case 0x94: // Zero Page,X
+            this.bus.write(effectiveAddress, this.state.y);
+            break;
+        // TAX
+        case 0xaa:
+            this.state.x = this.state.a;
+            this.setArithmeticFlags(this.state.x);
+            break;
+        // TAY
+        case 0xa8:
+            this.state.y = this.state.a;
+            this.setArithmeticFlags(this.state.y);
+            break;
+        // TSX
+        case 0xba:
+            this.state.x = this.state.sp;
+            this.setArithmeticFlags(this.state.x);
+            break;
+        //  TXA
+        case 0x8a:
+            this.state.a = this.state.x;
+            this.setArithmeticFlags(this.state.a);
+            break;
+        // TXS
+        case 0x9a:
+            this.state.sp = this.state.x;
+            break;
+        // TYA
+        case 0x98:
+            this.state.a = this.state.y;
+            this.setArithmeticFlags(this.state.a);
+            break;
 
-
-          //case 0x00: // BRK - Force Interrupt - Implied
-          //  this.handleBrk(this.state.pc + 1);
-          //  break;
-
-
-          case 0xaa: // TAX
-              this.state.x = this.state.a;
-              break;
           /** ASL - Arithmetic Shift Left *****************************************/
           case 0x0a: // Accumulator
               this.state.a = this.asl(this.state.a);
@@ -483,7 +665,6 @@ export class Cpu {
               hi = lo + 1;
               this.state.pc = decodeAddress(this.bus.readByte(lo, true), this.bus.readByte(hi, true));
               break;
-
             default:
                 implemented = false;
                 this.state.noOp = true;
@@ -494,7 +675,6 @@ export class Cpu {
             const text = process.env.NODE_ENV === 'DEBUG'
                 ? this.state.toTraceEventDebug()
                 : this.state.toTraceEvent();
-            //const text = this.state.toTraceEventDebug();
             const formattedText = implemented ? chalk.green(text) : chalk.red(text);
             console.log(formattedText);
         }
@@ -676,10 +856,7 @@ export class Cpu {
         this.state.overflowFlag = overflowFlag;
     }
 
-    private setArithmeticFlags(reg: number):void {
-        this.state.zeroFlag = (reg == 0);
-        this.state.negativeFlag = (reg & 0x80) != 0;
-    }
+    
     private lsr(m: number) {
         this.setCarryFlag((m & 0x01) != 0);
         return (m & 0xff) >>> 1;
@@ -688,10 +865,6 @@ export class Cpu {
     private asl(m:number) {
         this.setCarryFlag((m & 0x80) != 0);
         return (m << 1) & 0xff;
-    }
-
-    public getCarryBit() {
-        return (this.state.carryFlag ? 1 : 0);
     }
 
     private rol(m:number) {
@@ -711,5 +884,62 @@ export class Cpu {
         this.setCarryFlag(reg >= operand);
         this.setZeroFlag(tmp == 0);
         this.setNegativeFlag((tmp & 0x80) != 0); // Negative bit set
+    }
+
+    private adc(acc: number, operand: number): number {
+        var result = (operand & 0xff) + (acc & 0xff) + this.getCarryBit();
+        var carry6 = (operand & 0x7f) + (acc & 0x7f) + this.getCarryBit();
+        this.state.carryFlag = (result & 0x100) != 0;
+        this.state.overflowFlag = ((this.state.carryFlag ? 1 : 0) ^ (((carry6 & 0x80) != 0) ? 1 : 0)) ? true : false;
+        result &= 0xff;
+        this.setArithmeticFlags(result);
+        return result;
+    }
+
+    
+    private adcDecimal(acc: number, operand: number): number {
+        var l, h, result;
+        l = (acc & 0x0f) + (operand & 0x0f) + this.getCarryBit();
+        if ((l & 0xff) > 9) l += 6;
+        h = (acc >> 4) + (operand >> 4) + (l > 15 ? 1 : 0);
+        if ((h & 0xff) > 9) h += 6;
+        result = (l & 0x0f) | (h << 4);
+        result &= 0xff;
+        this.state.carryFlag = h > 15;
+        this.state.zeroFlag = result == 0;
+        this.state.overflowFlag = false;
+        this.state.negativeFlag = false;
+
+        return result;
+    }
+
+    private sbc(acc: number, operand: number): number {
+        var result = this.adc(acc, ~operand);
+        this.setArithmeticFlags(result);
+        return result;
+    }
+
+    private sbcDecimal(acc: number, operand: number): number {
+        var l, h, result;
+        l = (acc & 0x0f) - (operand & 0x0f) - (this.state.carryFlag ? 0 : 1);
+        if ((l & 0x10) != 0) l -= 6;
+        h = (acc >> 4) - (operand >> 4) - ((l & 0x10) != 0 ? 1 : 0);
+        if ((h & 0x10) != 0) h -= 6;
+        result = (l & 0x0f) | (h << 4) & 0xff;
+        this.state.carryFlag = (h & 0xff) < 15;
+        this.state.zeroFlag = result == 0;
+        this.state.overflowFlag = false;
+        this.state.negativeFlag = false;
+
+        return (result & 0xff);
+    }
+
+    private getCarryBit(): number {
+        return (this.state.carryFlag ? 1 : 0);
+    }
+
+    private setArithmeticFlags(result: number): void {
+        this.state.zeroFlag = (result == 0);
+        this.state.negativeFlag = (result & 0x80) != 0;
     }
 }
