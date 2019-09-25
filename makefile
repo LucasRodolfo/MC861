@@ -61,6 +61,7 @@ setup:
 	nvm install v10.16.0
 	nvm use v10.16.0
 	npm install -g
+	npm install -g ts-node
 
 clean:
 	rm -rf ${BIN}/* ${LOG}/*
