@@ -60,8 +60,7 @@ setup:
 	[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 	nvm install v10.16.0
 	nvm use v10.16.0
-	cd processor
-	npm install
+	npm install -g
 
 clean:
 	rm -rf ${BIN}/* ${LOG}/*
