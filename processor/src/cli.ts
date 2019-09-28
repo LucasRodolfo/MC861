@@ -3,12 +3,13 @@ import * as process from 'process';
 
 import {Bus} from './lib/Bus';
 import {ADDRESS, DEFAULT_END_ADDRESS, SIZE} from './lib/constants';
-import {Cpu} from './lib/Cpu';
+import {Cpu, InstructionBreakException} from './lib/Cpu';
 import {CpuState} from './lib/CpuState';
 import {Device} from './lib/devices/Device';
+import {RamDevice} from './lib/devices/RamDevice';
 import {RomDevice} from './lib/devices/RomDevice';
 import {NesMapper} from './lib/NesMapper';
-import {RamDevice} from './lib/devices/RamDevice';
+import {byteToHex, wordToHex} from './lib/utils';
 
 export async function runNes(nesPath: string) {
 
@@ -35,24 +36,41 @@ export async function runNes(nesPath: string) {
 
     bus.addDevice(rom);
 
+    await dump(bus, `${nesPath}.dump`);
+
     const state: CpuState = new CpuState();
 
     const cpu = new Cpu(state, bus);
     cpu.reset();
 
-    return await new Promise<void>((resolve, reject) => {
+    return await new Promise<number>((resolve, reject) => {
         setTimeout(() => {
             try {
                 do {
                     cpu.step();
                 } while (cpu.state.pc !== 0);
 
-                resolve();
+                resolve(null);
             } catch (err) {
-                reject(err);
+                if (err instanceof InstructionBreakException) {
+                    resolve(err.address);
+                } else {
+                    reject(err);
+                }
             }
         }, 1);
     });
+}
+
+async function dump(bus: Bus, filepath: string): Promise<void> {
+
+    const stream = await fs.createWriteStream(filepath);
+
+    for (let i = 0; i < 0x10000; i++) {
+        stream.write(`${wordToHex(i)}\t${byteToHex(bus.readByte(i, true))}\n`);
+    }
+
+    stream.end();
 }
 
 // tslint:disable:no-empty

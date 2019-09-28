@@ -33,6 +33,7 @@
   "dependencies": {
     "chalk": "^2.4.2",
     "fs-extra": "^8.1.0",
-    "sprintf-js": "latest"
+    "sprintf-js": "latest",
+    "ts-custom-error": "^3.1.1"
   }
 }

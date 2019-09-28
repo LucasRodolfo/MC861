@@ -1,5 +1,7 @@
 import * as assert from 'assert';
 
+// https://wiki.nesdev.com/w/index.php/INES
+
 export enum MirroringType {
     vertical = 0,
     horizontal = 1,
@@ -23,14 +25,14 @@ export interface INesHeader {
 }
 
 export interface INesFile {
-    header: INesHeader,
+    header: INesHeader;
     roms: Buffer[];
     vroms: Buffer[];
 }
 
 export enum NesSize {
     MAGIC = 0x04,
-    HEADER = 0x0a,
+    HEADER = 0x0c,
     PRG_ROM = 0x4000,
     CHR_ROM = 0x1000
 }
@@ -74,7 +76,9 @@ export class NesMapper {
 
     public parseHeader(): INesHeader {
 
-        const raw = this.buffer.slice(NesOffset.HEADER, NesSize.HEADER);
+        const headerBegin = NesOffset.HEADER;
+        const headerEnd = headerBegin + NesSize.HEADER;
+        const raw = this.buffer.slice(headerBegin, headerEnd);
 
         const zeroBytes0 = this.buffer.readUInt32BE(NesOffset.HEADER + 4) !== 0;
         const zeroBytes1 = this.buffer.readUInt32BE(NesOffset.HEADER + 8) !== 0;
@@ -114,8 +118,10 @@ export class NesMapper {
     private loadRoms(offset: NesOffset, size: NesSize, count: number): Buffer[] {
 
         return Array.from({length: count})
-            .map((i: number) => {
-                return this.buffer.slice(offset + i * size, size);
+            .map((x: any, i: number) => {
+                const begin = offset + i * size;
+                const end = begin + size;
+                return this.buffer.slice(begin, end);
             });
     }
 }

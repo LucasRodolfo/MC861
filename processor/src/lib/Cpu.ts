@@ -1,14 +1,14 @@
 import chalk from 'chalk';
 
+import {CustomError} from 'ts-custom-error';
 import {Bus} from './Bus';
 import {CpuState} from './CpuState';
 import {disassembleOp, instructionClocksNmos, instructionSizes} from './disassembler';
-import {decodeAddress, nanoseconds, numberToByte, wordToHex, byteToHex} from './utils';
-
-
+import {byteToHex, decodeAddress, nanoseconds, numberToByte, wordToHex} from './utils';
 import {
     ADDRESS,
     DEFAULT_CLOCK_PERIOD_IN_NS,
+    DEFAULT_SP,
     P_BREAK,
     P_CARRY,
     P_DECIMAL,
@@ -18,6 +18,13 @@ import {
     P_ZERO,
     ROM_SIZE
 } from './constants';
+
+export class InstructionBreakException extends CustomError {
+
+    constructor(message: string, public readonly address: number) {
+        super(message);
+    }
+}
 
 export class Cpu {
 
@@ -59,7 +66,7 @@ export class Cpu {
     }
 
     public reset(): void {
-        this.state.sp = 0xff;
+        this.state.sp = DEFAULT_SP;
 
         this.state.pc = this.bus.readWord(ADDRESS.RST, true);
 
@@ -67,9 +74,9 @@ export class Cpu {
 
         this.state.carryFlag = false;
         this.state.zeroFlag = false;
-        this.state.irqDisableFlag = false;
+        this.state.irqDisableFlag = true;
         this.state.decimalModeFlag = false;
-        this.state.breakFlag = false;
+        this.state.breakFlag = true;
         this.state.overflowFlag = false;
         this.state.negativeFlag = false;
 
@@ -207,474 +214,476 @@ export class Cpu {
 
         const effectiveAddress = this.calculateEffectiveAddress(irAddressMode, irOpMode);
         let implemented = true;
-        var memoryLog = '';
+        let memoryLog = '';
 
         switch (this.state.ir) {
-        //case 0x00: // BRK - Force Interrupt - Implied
-        //  this.handleBrk(this.state.pc + 1);
-        //  break;
-        
-        // ADC
-        case 0x69:  // Imediato
-            if (this.state.decimalModeFlag) {
-                this.state.a = this.adcDecimal(this.state.a, this.state.args[0]);
-            } else {
-                this.state.a = this.adc(this.state.a, this.state.args[0]);
+            case 0x00: // BRK - Force Interrupt - Implied
+                // this.handleBrk(this.state.pc + 1);
+                // break;
+                throw new InstructionBreakException('Program halt', currentPC);
+
+            // ADC
+            case 0x69:  // Imediato
+                if (this.state.decimalModeFlag) {
+                    this.state.a = this.adcDecimal(this.state.a, this.state.args[0]);
+                } else {
+                    this.state.a = this.adc(this.state.a, this.state.args[0]);
+                }
+                break;
+            case 0x61: // (Zero Page,X)
+            case 0x65: // Zero Page
+            case 0x6d: // Absolute
+            case 0x71: // (Zero Page),Y
+            case 0x75: // Zero Page,X
+            case 0x79: // Absolute,Y
+            case 0x7d: // Absolute,X
+                if (this.state.decimalModeFlag) {
+                    this.state.a = this.adcDecimal(this.state.a, this.bus.readWord(effectiveAddress, true));
+                } else {
+                    this.state.a = this.adc(this.state.a, this.bus.readWord(effectiveAddress, true));
+                }
+                break;
+            // DEC - TESTAR
+            case 0xc6:      // Zero Page
+            case 0xce:      // Absolute
+            case 0xd6:      // Zero Page,X
+            case 0xde: {    // Absolute,X
+                const tmp = (this.bus.readWord(effectiveAddress, true) - 1) & 0xff;
+                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
+                this.bus.write(effectiveAddress, tmp);
+                this.setArithmeticFlags(tmp);
+                break;
             }
-            break;
-        case 0x61: // (Zero Page,X)
-        case 0x65: // Zero Page
-        case 0x6d: // Absolute
-        case 0x71: // (Zero Page),Y
-        case 0x75: // Zero Page,X
-        case 0x79: // Absolute,Y
-        case 0x7d: // Absolute,X
-            if (this.state.decimalModeFlag) {
-                this.state.a = this.adcDecimal(this.state.a, this.bus.readWord(effectiveAddress, true));
-            } else {
-                this.state.a = this.adc(this.state.a, this.bus.readWord(effectiveAddress, true));
+            // DEX
+            case 0xca:
+                this.state.x = --this.state.x & 0xff;
+                this.setArithmeticFlags(this.state.x);
+                break;
+            // DEY
+            case 0x88:
+                this.state.y = --this.state.y & 0xff;
+                this.setArithmeticFlags(this.state.y);
+                break;
+            // INC - TESTAR
+            case 0xe6:      // Zero Page
+            case 0xee:      // Absolute
+            case 0xf6:      // Zero Page,X
+            case 0xfe: {    // Absolute,X
+                const tmp = (this.bus.readWord(effectiveAddress, true) + 1) & 0xff;
+                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
+                this.bus.write(effectiveAddress, tmp);
+                this.setArithmeticFlags(tmp);
+                break;
             }
-            break;
-        // DEC - TESTAR
-        case 0xc6: // Zero Page
-        case 0xce: // Absolute
-        case 0xd6: // Zero Page,X
-        case 0xde: // Absolute,X
-            var tmp = (this.bus.readWord(effectiveAddress, true) - 1) & 0xff;
-            memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
-            this.bus.write(effectiveAddress, tmp);
-            this.setArithmeticFlags(tmp);
-            break;
-        // DEX 
-        case 0xca: 
-            this.state.x = --this.state.x & 0xff;
-            this.setArithmeticFlags(this.state.x);
-            break;
-        // DEY
-        case 0x88: 
-            this.state.y = --this.state.y & 0xff;
-            this.setArithmeticFlags(this.state.y);
-            break;
-        // INC - TESTAR
-        case 0xe6: // Zero Page
-        case 0xee: // Absolute
-        case 0xf6: // Zero Page,X
-        case 0xfe: // Absolute,X
-            var tmp = (this.bus.readWord(effectiveAddress, true) + 1) & 0xff;
-            memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
-            this.bus.write(effectiveAddress, tmp);
-            this.setArithmeticFlags(tmp);
-            break;
-        // INX
-        case 0xe8:
-            this.state.x = ++this.state.x & 0xff;
-            this.setArithmeticFlags(this.state.x);
-            break;
-        // INY
-        case 0xc8:
-            this.state.y = ++this.state.y & 0xff;
-            this.setArithmeticFlags(this.state.y);
-            break;
-        // LDA
-        case 0xa9: // Imediato
-            this.state.a = this.state.args[0];
-            this.setArithmeticFlags(this.state.a);
-            break;
-        case 0xa1: // (Zero Page,X)
-        case 0xa5: // Zero Page
-        case 0xad: // Absolute
-        case 0xb1: // (Zero Page),Y
-        case 0xb5: // Zero Page,X
-        case 0xb9: // Absolute,Y
-        case 0xbd: // Absolute,X
-            this.state.a = this.bus.readWord(effectiveAddress, true);
-            this.setArithmeticFlags(this.state.a);
-            break;
-        // LDX
-        case 0xa2: // Imediato
-            this.state.x = this.state.args[0];
-            this.setArithmeticFlags(this.state.x);
-            break;
-        case 0xa6: // Zero Page
-        case 0xae: // Absolute
-        case 0xb6: // Zero Page,Y
-        case 0xbe: // Absolute,Y
-            this.state.x = this.bus.readWord(effectiveAddress, true);
-            this.setArithmeticFlags(this.state.x);
-            break;
-        // LDY
-        case 0xa0: // Imediato
-            this.state.y = this.state.args[0];
-            this.setArithmeticFlags(this.state.y);
-            break;
-        case 0xa4: // Zero Page
-        case 0xac: // Absolute
-        case 0xb4: // Zero Page,X
-        case 0xbc: // Absolute,X
-            this.state.y = this.bus.readWord(effectiveAddress, true);
-            this.setArithmeticFlags(this.state.y);
-            break;
-        // PHA
-        case 0x48: // PHA
-            memoryLog = this.stackPush(this.state.a);
-            break;
-        // PHP
-        case 0x08: // PHP
-            memoryLog = this.stackPush(this.state.getStatusFlag());
-            break;
-        // PLA
-        case 0x68:
-            this.state.a = this.stackPop();
-            this.setArithmeticFlags(this.state.a);
-            break;
-        // PLP
-        case 0x28:
-            this.setProcessorStatus(this.stackPop());
-            break;
-        // SBC
-        case 0xe9: // Imediato
-            if (this.state.decimalModeFlag) {
-                this.state.a = this.sbcDecimal(this.state.a, this.state.args[0]);
-            } else {
-                this.state.a = this.sbc(this.state.a, this.state.args[0]);
+            // INX
+            case 0xe8:
+                this.state.x = ++this.state.x & 0xff;
+                this.setArithmeticFlags(this.state.x);
+                break;
+            // INY
+            case 0xc8:
+                this.state.y = ++this.state.y & 0xff;
+                this.setArithmeticFlags(this.state.y);
+                break;
+            // LDA
+            case 0xa9: // Imediato
+                this.state.a = this.state.args[0];
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0xa1: // (Zero Page,X)
+            case 0xa5: // Zero Page
+            case 0xad: // Absolute
+            case 0xb1: // (Zero Page),Y
+            case 0xb5: // Zero Page,X
+            case 0xb9: // Absolute,Y
+            case 0xbd: // Absolute,X
+                this.state.a = this.bus.readWord(effectiveAddress, true);
+                this.setArithmeticFlags(this.state.a);
+                break;
+            // LDX
+            case 0xa2: // Imediato
+                this.state.x = this.state.args[0];
+                this.setArithmeticFlags(this.state.x);
+                break;
+            case 0xa6: // Zero Page
+            case 0xae: // Absolute
+            case 0xb6: // Zero Page,Y
+            case 0xbe: // Absolute,Y
+                this.state.x = this.bus.readWord(effectiveAddress, true);
+                this.setArithmeticFlags(this.state.x);
+                break;
+            // LDY
+            case 0xa0: // Imediato
+                this.state.y = this.state.args[0];
+                this.setArithmeticFlags(this.state.y);
+                break;
+            case 0xa4: // Zero Page
+            case 0xac: // Absolute
+            case 0xb4: // Zero Page,X
+            case 0xbc: // Absolute,X
+                this.state.y = this.bus.readWord(effectiveAddress, true);
+                this.setArithmeticFlags(this.state.y);
+                break;
+            // PHA
+            case 0x48: // PHA
+                memoryLog = this.stackPush(this.state.a);
+                break;
+            // PHP
+            case 0x08: // PHP
+                memoryLog = this.stackPush(this.state.getStatusFlag());
+                break;
+            // PLA
+            case 0x68:
+                this.state.a = this.stackPop();
+                this.setArithmeticFlags(this.state.a);
+                break;
+            // PLP
+            case 0x28:
+                this.setProcessorStatus(this.stackPop());
+                break;
+            // SBC
+            case 0xe9: // Imediato
+                if (this.state.decimalModeFlag) {
+                    this.state.a = this.sbcDecimal(this.state.a, this.state.args[0]);
+                } else {
+                    this.state.a = this.sbc(this.state.a, this.state.args[0]);
+                }
+                break;
+            case 0xe1: // (Zero Page,X)
+            case 0xe5: // Zero Page
+            case 0xed: // Absolute
+            case 0xf1: // (Zero Page),Y
+            case 0xf5: // Zero Page,X
+            case 0xf9: // Absolute,Y
+            case 0xfd: // Absolute,X
+                if (this.state.decimalModeFlag) {
+                    this.state.a = this.sbcDecimal(this.state.a, this.bus.readWord(effectiveAddress, true));
+                } else {
+                    this.state.a = this.sbc(this.state.a, this.bus.readWord(effectiveAddress, true));
+                }
+                break;
+            // STA
+            case 0x81: // (Zero Page,X)
+            case 0x85: // Zero Page
+            case 0x8d: // Absolute
+            case 0x91: // (Zero Page),Y
+            case 0x95: // Zero Page,X
+            case 0x99: // Absolute,Y
+            case 0x9d: // Absolute,X
+                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(this.state.a) + ' |';
+                this.bus.write(effectiveAddress, this.state.a);
+                break;
+            // STX
+            case 0x86: // Zero Page
+            case 0x8e: // Absolute
+            case 0x96: // Zero Page,Y
+                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(this.state.x) + ' |';
+                this.bus.write(effectiveAddress, this.state.x);
+                break;
+            // STY
+            case 0x84: // Zero Page
+            case 0x8c: // Absolute
+            case 0x94: // Zero Page,X
+                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(this.state.y) + ' |';
+                this.bus.write(effectiveAddress, this.state.y);
+                break;
+            // TAX
+            case 0xaa:
+                this.state.x = this.state.a;
+                this.setArithmeticFlags(this.state.x);
+                break;
+            // TAY
+            case 0xa8:
+                this.state.y = this.state.a;
+                this.setArithmeticFlags(this.state.y);
+                break;
+            // TSX
+            case 0xba:
+                this.state.x = this.state.sp;
+                this.setArithmeticFlags(this.state.x);
+                break;
+            //  TXA
+            case 0x8a:
+                this.state.a = this.state.x;
+                this.setArithmeticFlags(this.state.a);
+                break;
+            // TXS
+            case 0x9a:
+                this.state.sp = this.state.x;
+                break;
+            // TYA
+            case 0x98:
+                this.state.a = this.state.y;
+                this.setArithmeticFlags(this.state.a);
+                break;
+
+            /** ASL - Arithmetic Shift Left *****************************************/
+            case 0x0a: // Accumulator
+                this.state.a = this.asl(this.state.a);
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x06:      // Zero Page
+            case 0x0e:      // Absolute
+            case 0x16:      // Zero Page,X
+            case 0x1e: {    // Absolute,X
+                const tmp = this.asl(this.bus.readWord(effectiveAddress, true));
+                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
+                this.bus.write(effectiveAddress, tmp);
+                this.setArithmeticFlags(tmp);
+                break;
             }
-            break;
-        case 0xe1: // (Zero Page,X)
-        case 0xe5: // Zero Page
-        case 0xed: // Absolute
-        case 0xf1: // (Zero Page),Y
-        case 0xf5: // Zero Page,X
-        case 0xf9: // Absolute,Y
-        case 0xfd: // Absolute,X
-            if (this.state.decimalModeFlag) {
-                this.state.a = this.sbcDecimal(this.state.a, this.bus.readWord(effectiveAddress, true));
-            } else {
-                this.state.a = this.sbc(this.state.a, this.bus.readWord(effectiveAddress, true));
+
+            /** BIT - Bit Test ******************************************************/
+            //Nao foi testado ainda.
+            case 0x89: // 65C02 #Immediate
+                this.setZeroFlag((this.state.a & this.state.args[0]) === 0);
+                break;
+            case 0x34: // 65C02 Zero Page,X
+                break;
+            case 0x24:      // Zero Page
+            case 0x2c:      // Absolute
+            case 0x3c: {    // Absolute,X
+                const tmp = this.bus.readWord(effectiveAddress, true);
+                this.setZeroFlag((this.state.a & tmp) === 0);
+                this.setNegativeFlag((tmp & 0x80) !== 0);
+                this.setOverflowFlag((tmp & 0x40) !== 0);
+                break;
             }
-            break;
-        // STA
-        case 0x81: // (Zero Page,X)
-        case 0x85: // Zero Page
-        case 0x8d: // Absolute
-        case 0x91: // (Zero Page),Y
-        case 0x95: // Zero Page,X
-        case 0x99: // Absolute,Y
-        case 0x9d: // Absolute,X
-            memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(this.state.a) + ' |';
-            this.bus.write(effectiveAddress, this.state.a);
-            break;
-        // STX
-        case 0x86: // Zero Page
-        case 0x8e: // Absolute
-        case 0x96: // Zero Page,Y
-            memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(this.state.x) + ' |';
-            this.bus.write(effectiveAddress, this.state.x);
-            break;
-        // STY
-        case 0x84: // Zero Page
-        case 0x8c: // Absolute
-        case 0x94: // Zero Page,X
-            memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(this.state.y) + ' |';
-            this.bus.write(effectiveAddress, this.state.y);
-            break;
-        // TAX
-        case 0xaa:
-            this.state.x = this.state.a;
-            this.setArithmeticFlags(this.state.x);
-            break;
-        // TAY
-        case 0xa8:
-            this.state.y = this.state.a;
-            this.setArithmeticFlags(this.state.y);
-            break;
-        // TSX
-        case 0xba:
-            this.state.x = this.state.sp;
-            this.setArithmeticFlags(this.state.x);
-            break;
-        //  TXA
-        case 0x8a:
-            this.state.a = this.state.x;
-            this.setArithmeticFlags(this.state.a);
-            break;
-        // TXS
-        case 0x9a:
-            this.state.sp = this.state.x;
-            break;
-        // TYA
-        case 0x98:
-            this.state.a = this.state.y;
-            this.setArithmeticFlags(this.state.a);
-            break;
 
-          /** ASL - Arithmetic Shift Left *****************************************/
-          case 0x0a: // Accumulator
-              this.state.a = this.asl(this.state.a);
-              this.setArithmeticFlags(this.state.a);
-              break;
-          case 0x06: // Zero Page
-          case 0x0e: // Absolute
-          case 0x16: // Zero Page,X
-          case 0x1e: // Absolute,X
-              var tmp = this.asl(this.bus.readWord(effectiveAddress, true));
-              memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
-              this.bus.write(effectiveAddress, tmp);
-              this.setArithmeticFlags(tmp);
-              break;
+            /** ORA - Logical Inclusive Or ******************************************/
+            case 0x09: // #Immediate
+                this.state.a |= this.state.args[0];
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x12: // 65C02 ORA (ZP)
+                break;
+            case 0x01: // (Zero Page,X)
+            case 0x05: // Zero Page
+            case 0x0d: // Absolute
+            case 0x11: // (Zero Page),Y
+            case 0x15: // Zero Page,X
+            case 0x19: // Absolute,Y
+            case 0x1d: // Absolute,X
+                this.state.a |= this.bus.readWord(effectiveAddress, true);
+                this.setArithmeticFlags(this.state.a);
+                break;
 
-          /** BIT - Bit Test ******************************************************/
-          //Nao foi testado ainda.
-          case 0x89: // 65C02 #Immediate
-              this.setZeroFlag((this.state.a & this.state.args[0]) == 0);
-              break;
-          case 0x34: // 65C02 Zero Page,X
-              break;
-          case 0x24: // Zero Page
-          case 0x2c: // Absolute
-          case 0x3c: // Absolute,X
-              var tmp = this.bus.readWord(effectiveAddress, true);
-              this.setZeroFlag((this.state.a & tmp) == 0);
-              this.setNegativeFlag((tmp & 0x80) != 0);
-              this.setOverflowFlag((tmp & 0x40) != 0);
-              break;
+            case 0xf0: // BEQ - Branch if Equal to Zero - Relative
+                if (this.getZeroFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0xd0: // BNE - Branch if Not Equal to Zero - Relative
+                if (!this.getZeroFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x90: // BCC - Branch if Carry Clear - Relative
+                if (!this.getCarryFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0xb0: // BCS - Branch if Carry Set - Relative
+                if (this.getCarryFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x30: // BMI - Branch if Minus - Relative
+                if (this.getNegativeFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x10: // BPL - Branch if Positive - Relative
+                if (!this.getNegativeFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x50: // BVC - Branch if Overflow Clear - Relative
+                if (!this.getOverflowFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
+            case 0x70: // BVS - Branch if Overflow Set - Relative
+                if (this.getOverflowFlag()) {
+                    this.state.pc = this.relAddress(this.state.args[0]);
+                }
+                break;
 
-          /** ORA - Logical Inclusive Or ******************************************/
-          case 0x09: // #Immediate
-              this.state.a |= this.state.args[0];
-              this.setArithmeticFlags(this.state.a);
-              break;
-          case 0x12: // 65C02 ORA (ZP)
-              break;
-          case 0x01: // (Zero Page,X)
-          case 0x05: // Zero Page
-          case 0x0d: // Absolute
-          case 0x11: // (Zero Page),Y
-          case 0x15: // Zero Page,X
-          case 0x19: // Absolute,Y
-          case 0x1d: // Absolute,X
-              this.state.a |= this.bus.readWord(effectiveAddress, true);
-              this.setArithmeticFlags(this.state.a);
-              break;
+            case 0x18: // CLC - Clear Carry Flag - Implied
+                this.state.carryFlag = false;
+                break;
 
-          case 0xf0: // BEQ - Branch if Equal to Zero - Relative
-              if (this.getZeroFlag()) {
-                  this.state.pc = this.relAddress(this.state.args[0]);
-              }
-              break;
-          case 0xd0: // BNE - Branch if Not Equal to Zero - Relative
-              if (!this.getZeroFlag()) {
-                  this.state.pc = this.relAddress(this.state.args[0]);
-              }
-              break;
-          case 0x90: // BCC - Branch if Carry Clear - Relative
-              if (!this.getCarryFlag()) {
-                  this.state.pc = this.relAddress(this.state.args[0]);
-              }
-              break;
-          case 0xb0: // BCS - Branch if Carry Set - Relative
-              if (this.getCarryFlag()) {
-                  this.state.pc = this.relAddress(this.state.args[0]);
-              }
-              break;
-          case 0x30: // BMI - Branch if Minus - Relative
-              if (this.getNegativeFlag()) {
-                  this.state.pc = this.relAddress(this.state.args[0]);
-              }
-              break;
-          case 0x10: // BPL - Branch if Positive - Relative
-              if (!this.getNegativeFlag()) {
-                  this.state.pc = this.relAddress(this.state.args[0]);
-              }
-              break;
-          case 0x50: // BVC - Branch if Overflow Clear - Relative
-              if (!this.getOverflowFlag()) {
-                  this.state.pc = this.relAddress(this.state.args[0]);
-              }
-              break;
-          case 0x70: // BVS - Branch if Overflow Set - Relative
-              if (this.getOverflowFlag()) {
-                  this.state.pc = this.relAddress(this.state.args[0]);
-              }
-              break;
+            case 0xd8: // CLD - Clear Decimal Mode - Implied
+                this.state.decimalModeFlag = false;
+                break;
 
-          case 0x18: // CLC - Clear Carry Flag - Implied
-              this.state.carryFlag = false;
-              break;
+            case 0x58: // CLI - Clear Interrupt Disable - Implied
+                this.state.irqDisableFlag = false;
+                break;
 
-          case 0xd8: // CLD - Clear Decimal Mode - Implied
-              this.state.decimalModeFlag = false;
-              break;
+            case 0xb8: // CLV - Clear Overflow Flag - Implied
+                this.state.overflowFlag = false;
+                break;
 
-          case 0x58: // CLI - Clear Interrupt Disable - Implied
-              this.state.irqDisableFlag = false;
-              break;
+            /** CPX - Compare X Register ********************************************/
+            case 0xe0: // #Immediate
+                this.cmp(this.state.x, this.state.args[0]);
+                break;
+            case 0xe4: // Zero Page
+            case 0xec: // Absolute
+                this.cmp(this.state.x, this.bus.readWord(effectiveAddress, true));
+                break;
 
-          case 0xb8: // CLV - Clear Overflow Flag - Implied
-              this.state.overflowFlag = false;
-              break;
+            /** CPY - Compare Y Register ********************************************/
+            case 0xc0: // #Immediate
+                this.cmp(this.state.y, this.state.args[0]);
+                break;
+            case 0xc4: // Zero Page
+            case 0xcc: // Absolute
+                this.cmp(this.state.y, this.bus.readWord(effectiveAddress, true));
+                break;
+            /** CMP - Compare Accumulator *******************************************/
+            case 0xc9: // #Immediate
+                this.cmp(this.state.a, this.state.args[0]);
+                break;
+            case 0xd2: // 65C02 CMP (ZP)
+                break;
+            case 0xc1: // (Zero Page,X)
+            case 0xc5: // Zero Page
+            case 0xcd: // Absolute
+            case 0xd1: // (Zero Page),Y
+            case 0xd5: // Zero Page,X
+            case 0xd9: // Absolute,Y
+            case 0xdd: // Absolute,X
+                this.cmp(this.state.a, this.bus.readWord(effectiveAddress, true));
+                break;
 
-          /** CPX - Compare X Register ********************************************/
-          case 0xe0: // #Immediate
-              this.cmp(this.state.x, this.state.args[0]);
-              break;
-          case 0xe4: // Zero Page
-          case 0xec: // Absolute
-              this.cmp(this.state.x, this.bus.readWord(effectiveAddress, true));
-              break;
+            /** EOR - Exclusive OR **************************************************/
+            case 0x49: // #Immediate
+                this.state.a ^= this.state.args[0];
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x52: // 65C02 EOR (ZP)
+                break;
+            case 0x41: // (Zero Page,X)
+            case 0x45: // Zero Page
+            case 0x4d: // Absolute
+            case 0x51: // (Zero Page,Y)
+            case 0x55: // Zero Page,X
+            case 0x59: // Absolute,Y
+            case 0x5d: // Absolute,X
+                this.state.a ^= this.bus.readWord(effectiveAddress, true);
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x38: // SEC - Set Carry Flag - Implied
+                this.state.carryFlag = true;
+                break;
+            case 0xf8: // SED - Set Decimal Flag - Implied
+                this.state.decimalModeFlag = true;
+                break;
+            case 0x78: // SEI - Set Interrupt Disable - Implied
+                this.state.irqDisableFlag = true;
+                break;
+            /** LSR - Logical Shift Right *******************************************/
+            case 0x4a: // Accumulator
+                this.state.a = this.lsr(this.state.a);
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x46:      // Zero Page
+            case 0x4e:      // Absolute
+            case 0x56:      // Zero Page,X
+            case 0x5e: {    // Absolute,X
+                const tmp = this.lsr(this.bus.readWord(effectiveAddress, true));
+                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
+                this.bus.write(effectiveAddress, tmp);
+                this.setArithmeticFlags(tmp);
+                break;
+            }
 
-          /** CPY - Compare Y Register ********************************************/
-          case 0xc0: // #Immediate
-              this.cmp(this.state.y, this.state.args[0]);
-              break;
-          case 0xc4: // Zero Page
-          case 0xcc: // Absolute
-              this.cmp(this.state.y, this.bus.readWord(effectiveAddress, true));
-              break;
-          /** CMP - Compare Accumulator *******************************************/
-          case 0xc9: // #Immediate
-              this.cmp(this.state.a, this.state.args[0]);
-              break;
-          case 0xd2: // 65C02 CMP (ZP)
-              break;
-          case 0xc1: // (Zero Page,X)
-          case 0xc5: // Zero Page
-          case 0xcd: // Absolute
-          case 0xd1: // (Zero Page),Y
-          case 0xd5: // Zero Page,X
-          case 0xd9: // Absolute,Y
-          case 0xdd: // Absolute,X
-              this.cmp(this.state.a, this.bus.readWord(effectiveAddress, true));
-              break;
+            /** ROL - Rotate Left ***************************************************/
+            case 0x2a: // Accumulator
+                this.state.a = this.rol(this.state.a);
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x26:      // Zero Page
+            case 0x2e:      // Absolute
+            case 0x36:      // Zero Page,X
+            case 0x3e: {    // Absolute,X
+                const tmp = this.rol(this.bus.readWord(effectiveAddress, true));
+                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
+                this.bus.write(effectiveAddress, tmp);
+                this.setArithmeticFlags(tmp);
+                break;
+            }
 
-          /** EOR - Exclusive OR **************************************************/
-          case 0x49: // #Immediate
-              this.state.a ^= this.state.args[0];
-              this.setArithmeticFlags(this.state.a);
-              break;
-          case 0x52: // 65C02 EOR (ZP)
-              break;
-          case 0x41: // (Zero Page,X)
-          case 0x45: // Zero Page
-          case 0x4d: // Absolute
-          case 0x51: // (Zero Page,Y)
-          case 0x55: // Zero Page,X
-          case 0x59: // Absolute,Y
-          case 0x5d: // Absolute,X
-              this.state.a ^= this.bus.readWord(effectiveAddress, true);
-              this.setArithmeticFlags(this.state.a);
-              break;
-          case 0x38: // SEC - Set Carry Flag - Implied
-              this.state.carryFlag = true;
-              break;
-          case 0xf8: // SED - Set Decimal Flag - Implied
-              this.state.decimalModeFlag = true;
-              break;
-          case 0x78: // SEI - Set Interrupt Disable - Implied
-              this.state.irqDisableFlag = true;
-              break;
-          /** LSR - Logical Shift Right *******************************************/
-          case 0x4a: // Accumulator
-              this.state.a = this.lsr(this.state.a);
-              this.setArithmeticFlags(this.state.a);
-              break;
-          case 0x46: // Zero Page
-          case 0x4e: // Absolute
-          case 0x56: // Zero Page,X
-          case 0x5e: // Absolute,X
-              var tmp = this.lsr(this.bus.readWord(effectiveAddress, true));
-              memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
-              this.bus.write(effectiveAddress, tmp);
-              this.setArithmeticFlags(tmp);
-              break;
+            /** ROR - Rotate Right **************************************************/
+            case 0x6a: // Accumulator
+                this.state.a = this.ror(this.state.a);
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x66:      // Zero Page
+            case 0x6e:      // Absolute
+            case 0x76:      // Zero Page,X
+            case 0x7e: {    // Absolute,X
+                const tmp = this.ror(this.bus.readWord(effectiveAddress, true));
+                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
+                this.bus.write(effectiveAddress, tmp);
+                this.setArithmeticFlags(tmp);
+                break;
+            }
 
-          /** ROL - Rotate Left ***************************************************/
-          case 0x2a: // Accumulator
-              this.state.a = this.rol(this.state.a);
-              this.setArithmeticFlags(this.state.a);
-              break;
-          case 0x26: // Zero Page
-          case 0x2e: // Absolute
-          case 0x36: // Zero Page,X
-          case 0x3e: // Absolute,X
-              var tmp = this.rol(this.bus.readWord(effectiveAddress, true));
-              memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
-              this.bus.write(effectiveAddress, tmp);
-              this.setArithmeticFlags(tmp);
-              break;
+            /** AND - Logical AND ***************************************************/
+            case 0x29: // #Immediate
+                this.state.a &= this.state.args[0];
+                this.setArithmeticFlags(this.state.a);
+                break;
+            case 0x32: // 65C02 AND (ZP)
+                break;
+            case 0x21: // (Zero Page,X)
+            case 0x25: // Zero Page
+            case 0x2d: // Absolute
+            case 0x31: // (Zero Page),Y
+            case 0x35: // Zero Page,X
+            case 0x39: // Absolute,Y
+            case 0x3d: // Absolute,X
+                this.state.a &= this.bus.readWord(effectiveAddress, true);
+                this.setArithmeticFlags(this.state.a);
+                break;
 
-          /** ROR - Rotate Right **************************************************/
-          case 0x6a: // Accumulator
-              this.state.a = this.ror(this.state.a);
-              this.setArithmeticFlags(this.state.a);
-              break;
-          case 0x66: // Zero Page
-          case 0x6e: // Absolute
-          case 0x76: // Zero Page,X
-          case 0x7e: // Absolute,X
-              var tmp = this.ror(this.bus.readWord(effectiveAddress, true));
-              memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
-              this.bus.write(effectiveAddress, tmp);
-              this.setArithmeticFlags(tmp);
-              break;
+            case 0x40: {    // RTI - Return from Interrupt - Implied
+                this.setProcessorStatus(this.stackPop());
+                const lo = this.stackPop();
+                const hi = this.stackPop();
+                this.setProgramCounter(decodeAddress(lo, hi));
+                break;
+            }
 
-          /** AND - Logical AND ***************************************************/
-          case 0x29: // #Immediate
-              this.state.a &= this.state.args[0];
-              this.setArithmeticFlags(this.state.a);
-              break;
-          case 0x32: // 65C02 AND (ZP)
-              break;
-          case 0x21: // (Zero Page,X)
-          case 0x25: // Zero Page
-          case 0x2d: // Absolute
-          case 0x31: // (Zero Page),Y
-          case 0x35: // Zero Page,X
-          case 0x39: // Absolute,Y
-          case 0x3d: // Absolute,X
-              this.state.a &= this.bus.readWord(effectiveAddress, true);
-              this.setArithmeticFlags(this.state.a);
-              break;
+            case 0x60: {    // RTS - Return from Subroutine - Implied
+                const lo = this.stackPop();
+                const hi = this.stackPop();
+                this.setProgramCounter((decodeAddress(lo, hi) + 1) & 0xffff);
+                break;
+            }
 
-          case 0x40: // RTI - Return from Interrupt - Implied
-              this.setProcessorStatus(this.stackPop());
-              var lo = this.stackPop();
-              var hi = this.stackPop();
-              this.setProgramCounter(decodeAddress(lo, hi));
-              break;
+            case 0x20: // JSR - Jump to Subroutine - Implied
+                memoryLog = this.stackPush((this.state.pc - 1 >> 8) & 0xff); // PC high byte
+                memoryLog = memoryLog + this.stackPush(this.state.pc - 1 & 0xff);        // PC low byte
+                this.state.pc = decodeAddress(this.state.args[0], this.state.args[1]) + 16;
+                break;
+            /** JMP *****************************************************************/
+            case 0x4c: {    // JMP - Absolute
+                const teste = decodeAddress(this.state.args[0], this.state.args[1]);
+                this.state.pc = teste + 16;
+                break;
+            }
+            case 0x6c: {    // JMP - Indirect
+                const lo = decodeAddress(this.state.args[0], this.state.args[1]) + 16; // Address of low byte
 
-          case 0x60: // RTS - Return from Subroutine - Implied
-              lo = this.stackPop();
-              hi = this.stackPop();
-              this.setProgramCounter((decodeAddress(lo, hi) + 1) & 0xffff);
-              break;
+                const hi = this.state.args[0] === 0xff ? decodeAddress(0x00, this.state.args[1]) : lo + 1;
 
-          case 0x20: // JSR - Jump to Subroutine - Implied
-              memoryLog = this.stackPush((this.state.pc - 1 >> 8) & 0xff); // PC high byte
-              memoryLog = memoryLog + this.stackPush(this.state.pc - 1 & 0xff);        // PC low byte
-              this.state.pc = decodeAddress(this.state.args[0],this.state.args[1]) + 16;
-              break;
-          /** JMP *****************************************************************/
-          case 0x4c: // JMP - Absolute
-              var teste = decodeAddress(this.state.args[0], this.state.args[1]);
-              this.state.pc = teste  + 16;
-              break;
-          case 0x6c: // JMP - Indirect
-              lo = decodeAddress(this.state.args[0], this.state.args[1]) + 16; // Address of low byte
-
-              if (this.state.args[0] == 0xff) {
-                  hi = decodeAddress(0x00, this.state.args[1]);
-              } else {
-                  hi = lo + 1;
-              }
-
-              this.state.pc = decodeAddress(this.bus.readByte(lo, true), this.bus.readByte(hi, true));
-              break;
-          case 0x7c: // 65C02 JMP - (Absolute Indexed Indirect,X)
-              break;
-              lo = (((this.state.args[1] << 8) | this.state.args[0]) + this.state.x) & 0xffff;
-              hi = lo + 1;
-              this.state.pc = decodeAddress(this.bus.readByte(lo, true), this.bus.readByte(hi, true));
-              break;
+                this.state.pc = decodeAddress(this.bus.readByte(lo, true), this.bus.readByte(hi, true));
+                break;
+            }
             default:
                 implemented = false;
                 this.state.noOp = true;
@@ -683,12 +692,14 @@ export class Cpu {
         if (this.state.ir !== 0x00) {
 
             const text = process.env.NODE_ENV === 'DEBUG'
-                ? this.state.toTraceEventDebug() + memoryLog
-                : this.state.toTraceEvent() + memoryLog;
+                ? this.state.toTraceEventDebug(currentPC) + memoryLog
+                : this.state.toTraceEvent(currentPC) + memoryLog;
+
             const formattedText = process.env.NODE_ENV === 'DEBUG'
                 ? implemented ? chalk.green(text) : chalk.red(text)
-                : implemented ? text : null ;
-            if(formattedText != null) {
+                : implemented ? text : null;
+
+            if (formattedText !== null) {
                 console.log(formattedText);
             }
         }
@@ -734,9 +745,9 @@ export class Cpu {
         this.state.pc = this.bus.readWord(address16, true);
     }
 
-    public stackPush(data: number) : any {
+    public stackPush(data: number): any {
         this.bus.write(ADDRESS.STACK + this.state.sp, data);
-        var memoryLog = ' MEM[' + wordToHex(ADDRESS.STACK + this.state.sp) + '] = ' + byteToHex(data) + ' |';
+        const memoryLog = ' MEM[' + wordToHex(ADDRESS.STACK + this.state.sp) + '] = ' + byteToHex(data) + ' |';
         if (this.state.sp === 0) {
             this.state.sp = 0xff;
         } else {
@@ -839,6 +850,7 @@ export class Cpu {
 
         return disassembleOp(opCode, args);
     }
+
     public getZeroFlag() {
         return this.state.zeroFlag;
     }
@@ -871,47 +883,47 @@ export class Cpu {
         this.state.overflowFlag = overflowFlag;
     }
 
-    
+
     private lsr(m: number) {
-        this.setCarryFlag((m & 0x01) != 0);
+        this.setCarryFlag((m & 0x01) !== 0);
         return (m & 0xff) >>> 1;
     }
 
-    private asl(m:number) {
-        this.setCarryFlag((m & 0x80) != 0);
+    private asl(m: number) {
+        this.setCarryFlag((m & 0x80) !== 0);
         return (m << 1) & 0xff;
     }
 
-    private rol(m:number) {
-        var result = ((m << 1) | this.getCarryBit() ) & 0xff;
-        this.setCarryFlag((m & 0x80) != 0);
+    private rol(m: number) {
+        var result = ((m << 1) | this.getCarryBit()) & 0xff;
+        this.setCarryFlag((m & 0x80) !== 0);
         return result;
     }
 
-    private ror(m:number) {
-        var result = ((m >>> 1) | (this.getCarryBit() << 7)) & 0xff;
-        this.setCarryFlag((m & 0x01) != 0);
+    private ror(m: number) {
+        const result = ((m >>> 1) | (this.getCarryBit() << 7)) & 0xff;
+        this.setCarryFlag((m & 0x01) !== 0);
         return result;
     }
 
     private cmp(reg: number, operand: number) {
-        var tmp = (reg - operand) & 0xff;
+        const tmp = (reg - operand) & 0xff;
         this.setCarryFlag(reg >= operand);
-        this.setZeroFlag(tmp == 0);
-        this.setNegativeFlag((tmp & 0x80) != 0); // Negative bit set
+        this.setZeroFlag(tmp === 0);
+        this.setNegativeFlag((tmp & 0x80) !== 0); // Negative bit set
     }
 
     private adc(acc: number, operand: number): number {
         var result = (operand & 0xff) + (acc & 0xff) + this.getCarryBit();
         var carry6 = (operand & 0x7f) + (acc & 0x7f) + this.getCarryBit();
-        this.state.carryFlag = (result & 0x100) != 0;
-        this.state.overflowFlag = ((this.state.carryFlag ? 1 : 0) ^ (((carry6 & 0x80) != 0) ? 1 : 0)) ? true : false;
+        this.state.carryFlag = (result & 0x100) !== 0;
+        this.state.overflowFlag = ((this.state.carryFlag ? 1 : 0) ^ (((carry6 & 0x80) !== 0) ? 1 : 0)) ? true : false;
         result &= 0xff;
         this.setArithmeticFlags(result);
         return result;
     }
 
-    
+
     private adcDecimal(acc: number, operand: number): number {
         var l, h, result;
         l = (acc & 0x0f) + (operand & 0x0f) + this.getCarryBit();
@@ -921,7 +933,7 @@ export class Cpu {
         result = (l & 0x0f) | (h << 4);
         result &= 0xff;
         this.state.carryFlag = h > 15;
-        this.state.zeroFlag = result == 0;
+        this.state.zeroFlag = result === 0;
         this.state.overflowFlag = false;
         this.state.negativeFlag = false;
 
@@ -929,20 +941,26 @@ export class Cpu {
     }
 
     private sbc(acc: number, operand: number): number {
-        var result = this.adc(acc, ~operand);
+        const result = this.adc(acc, ~operand);
         this.setArithmeticFlags(result);
         return result;
     }
 
     private sbcDecimal(acc: number, operand: number): number {
-        var l, h, result;
-        l = (acc & 0x0f) - (operand & 0x0f) - (this.state.carryFlag ? 0 : 1);
-        if ((l & 0x10) != 0) l -= 6;
-        h = (acc >> 4) - (operand >> 4) - ((l & 0x10) != 0 ? 1 : 0);
-        if ((h & 0x10) != 0) h -= 6;
-        result = (l & 0x0f) | (h << 4) & 0xff;
+
+        let l = (acc & 0x0f) - (operand & 0x0f) - (this.state.carryFlag ? 0 : 1);
+        if ((l & 0x10) !== 0) {
+            l -= 6;
+        }
+
+        let h = (acc >> 4) - (operand >> 4) - ((l & 0x10) !== 0 ? 1 : 0);
+        if ((h & 0x10) !== 0) {
+            h -= 6;
+        }
+
+        const result = (l & 0x0f) | (h << 4) & 0xff;
         this.state.carryFlag = (h & 0xff) < 15;
-        this.state.zeroFlag = result == 0;
+        this.state.zeroFlag = result === 0;
         this.state.overflowFlag = false;
         this.state.negativeFlag = false;
 
@@ -954,7 +972,7 @@ export class Cpu {
     }
 
     private setArithmeticFlags(result: number): void {
-        this.state.zeroFlag = (result == 0);
-        this.state.negativeFlag = (result & 0x80) != 0;
+        this.state.zeroFlag = (result === 0);
+        this.state.negativeFlag = (result & 0x80) !== 0;
     }
 }

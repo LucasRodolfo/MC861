@@ -61,9 +61,9 @@ export class CpuState {
         }
     }
 
-    public toTraceEvent(): string {
+    public toTraceEvent(currentPC: number = this.pc): string {
         return '| ' +
-            'pc = ' + wordToHex(this.pc) + ' | ' +
+            'pc = ' + wordToHex(currentPC) + ' | ' +
             'a = ' + byteToHex(this.a) + ' | ' +
             'x = ' + byteToHex(this.x) + ' | ' +
             'y = ' + byteToHex(this.y) + ' | ' +
@@ -72,17 +72,17 @@ export class CpuState {
             ' |';
     }
 
-    public toTraceEventDebug(): string {
+    public toTraceEventDebug(currentPC: number = this.pc): string {
         const status = this.getInstructionByteStatus();
         return status + '\t\t' +
             sprintf('%-14s', disassembleOp(this.ir, this.args)) +
             '\t\t' +
-            '| pc = ' + wordToHex(this.pc) + ' | ' +
+            '| pc = ' + wordToHex(currentPC) + ' | ' +
             'a = ' + byteToHex(this.a) + ' | ' +
             'x = ' + byteToHex(this.x) + ' | ' +
             'y = ' + byteToHex(this.y) + ' | ' +
             'sp = ' + wordToHex(this.sp) + ' | ' +
-            'Flags = ' + this.getProcessorStatusStringDebug() +' | ';
+            'Flags = ' + this.getProcessorStatusStringDebug() + ' | ';
     }
 
     public getStatusFlag(): number {
