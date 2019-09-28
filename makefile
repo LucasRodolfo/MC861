@@ -56,9 +56,7 @@ setup:
 	apt-get install nodejs
 	npm install -g typescript
 	npm install -g ts-node
-	cd processor
-	npm install
-	cd ..
+	sh install_dependences.sh 
 clean:
 	rm -rf ${BIN}/* ${LOG}/*
 	rm -f ./ext/asm6/asm6

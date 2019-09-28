@@ -1,0 +1,2 @@
+cd ./processor
+npm install
