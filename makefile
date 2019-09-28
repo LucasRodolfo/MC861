@@ -53,16 +53,12 @@ test: ${BIN} ${LOG} ${NES} ${TESTS}
 	}
 
 setup:
-	curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
-	source ~/.bashrc
-	export NVM_DIR="$HOME/.nvm"
-	[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-	[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-	nvm install v10.16.0
-	nvm use v10.16.0
-	npm install -g
+	apt-get install nodejs
+	npm install -g typescript
 	npm install -g ts-node
-
+	cd processor
+	npm install
+	cd ..
 clean:
 	rm -rf ${BIN}/* ${LOG}/*
 	rm -f ./ext/asm6/asm6
