@@ -41,10 +41,10 @@ MIRRORING = %0001 ;%0000 = horizontal, %0001 = vertical, %1000 = four-screen
 
    .base $10000-(PRG_COUNT*$4000)
 
-Reset:
-   brk ; Abort execution
-
 NMI:
+  BRK
+
+Reset:
   LDA #$c0  ;Load the hex value $c0 into the A register
   ADC #$c4  ;Add the hex value $c4 to the A register
   LDA #$00
@@ -53,9 +53,8 @@ NMI:
   BEQ teste
   TAX
   TAX
-
 teste:
-
+  BRK
    ;NOTE: NMI code goes here
 
 IRQ:

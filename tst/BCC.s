@@ -40,16 +40,15 @@ MIRRORING = %0001 ;%0000 = horizontal, %0001 = vertical, %1000 = four-screen
 ;----------------------------------------------------------------
 
    .base $10000-(PRG_COUNT*$4000)
+NMI:
+  BRK
 
 Reset:
-   brk ; Abort execution
-
-NMI:
   BCC teste
   TAX
   TAX
 teste
-
+  BRK
    ;NOTE: NMI code goes here
 
 IRQ:
