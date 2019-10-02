@@ -214,12 +214,11 @@ export class Cpu {
 
         const effectiveAddress = this.calculateEffectiveAddress(irAddressMode, irOpMode);
         let implemented = true;
-        let memoryLog = '';
+        let memAddress: number[] = new Array();
+        let memData: number[] = new Array();
 
         switch (this.state.ir) {
             case 0x00: // BRK - Force Interrupt - Implied
-                // this.handleBrk(this.state.pc + 1);
-                // break;
                 throw new InstructionBreakException('Program halt', currentPC);
 
             // ADC
@@ -242,16 +241,21 @@ export class Cpu {
                 } else {
                     this.state.a = this.adc(this.state.a, this.bus.readWord(effectiveAddress, true));
                 }
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 break;
             // DEC - TESTAR
             case 0xc6:      // Zero Page
             case 0xce:      // Absolute
             case 0xd6:      // Zero Page,X
             case 0xde: {    // Absolute,X
-                const tmp = (this.bus.readWord(effectiveAddress, true) - 1) & 0xff;
-                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
-                this.bus.write(effectiveAddress, tmp);
-                this.setArithmeticFlags(tmp);
+                const tmp = this.bus.readWord(effectiveAddress, true);
+                memAddress.push(effectiveAddress);
+                memData.push(tmp & 0xff);
+                this.bus.write(effectiveAddress, (tmp - 1) & 0xff);
+                memAddress.push(effectiveAddress);
+                memData.push((tmp - 1) & 0xff);
+                this.setArithmeticFlags((tmp - 1) & 0xff);
                 break;
             }
             // DEX
@@ -269,10 +273,13 @@ export class Cpu {
             case 0xee:      // Absolute
             case 0xf6:      // Zero Page,X
             case 0xfe: {    // Absolute,X
-                const tmp = (this.bus.readWord(effectiveAddress, true) + 1) & 0xff;
-                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
-                this.bus.write(effectiveAddress, tmp);
-                this.setArithmeticFlags(tmp);
+                const tmp = this.bus.readWord(effectiveAddress, true);
+                memAddress.push(effectiveAddress);
+                memData.push(tmp & 0xff);
+                this.bus.write(effectiveAddress, (tmp + 1) & 0xff);
+                memAddress.push(effectiveAddress);
+                memData.push((tmp + 1) & 0xff);
+                this.setArithmeticFlags((tmp + 1) & 0xff);
                 break;
             }
             // INX
@@ -298,6 +305,8 @@ export class Cpu {
             case 0xb9: // Absolute,Y
             case 0xbd: // Absolute,X
                 this.state.a = this.bus.readWord(effectiveAddress, true);
+                memAddress.push(effectiveAddress);
+                memData.push(this.state.a);
                 this.setArithmeticFlags(this.state.a);
                 break;
             // LDX
@@ -310,6 +319,8 @@ export class Cpu {
             case 0xb6: // Zero Page,Y
             case 0xbe: // Absolute,Y
                 this.state.x = this.bus.readWord(effectiveAddress, true);
+                memAddress.push(effectiveAddress);
+                memData.push(this.state.x);
                 this.setArithmeticFlags(this.state.x);
                 break;
             // LDY
@@ -322,24 +333,34 @@ export class Cpu {
             case 0xb4: // Zero Page,X
             case 0xbc: // Absolute,X
                 this.state.y = this.bus.readWord(effectiveAddress, true);
+                memAddress.push(effectiveAddress);
+                memData.push(this.state.y);
                 this.setArithmeticFlags(this.state.y);
                 break;
             // PHA
             case 0x48: // PHA
-                memoryLog = this.stackPush(this.state.a);
+                this.stackPush(this.state.a);
+                memAddress.push(ADDRESS.STACK + this.state.sp + 1);
+                memData.push(this.state.a);
                 break;
             // PHP
             case 0x08: // PHP
-                memoryLog = this.stackPush(this.state.getStatusFlag());
+                this.stackPush(this.state.getStatusFlag());
+                memAddress.push(ADDRESS.STACK + this.state.sp + 1);
+                memData.push(this.state.getStatusFlag());
                 break;
             // PLA
             case 0x68:
                 this.state.a = this.stackPop();
+                memAddress.push(ADDRESS.STACK + this.state.sp);
+                memData.push(this.state.a);
                 this.setArithmeticFlags(this.state.a);
                 break;
             // PLP
             case 0x28:
                 this.setProcessorStatus(this.stackPop());
+                memAddress.push(ADDRESS.STACK + this.state.sp);
+                memData.push(this.state.getStatusFlag());
                 break;
             // SBC
             case 0xe9: // Imediato
@@ -361,6 +382,8 @@ export class Cpu {
                 } else {
                     this.state.a = this.sbc(this.state.a, this.bus.readWord(effectiveAddress, true));
                 }
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 break;
             // STA
             case 0x81: // (Zero Page,X)
@@ -370,21 +393,24 @@ export class Cpu {
             case 0x95: // Zero Page,X
             case 0x99: // Absolute,Y
             case 0x9d: // Absolute,X
-                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(this.state.a) + ' |';
+                memAddress.push(effectiveAddress);
+                memData.push(this.state.a);
                 this.bus.write(effectiveAddress, this.state.a);
                 break;
             // STX
             case 0x86: // Zero Page
             case 0x8e: // Absolute
             case 0x96: // Zero Page,Y
-                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(this.state.x) + ' |';
+                memAddress.push(effectiveAddress);
+                memData.push(this.state.x);
                 this.bus.write(effectiveAddress, this.state.x);
                 break;
             // STY
             case 0x84: // Zero Page
             case 0x8c: // Absolute
             case 0x94: // Zero Page,X
-                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(this.state.y) + ' |';
+                memAddress.push(effectiveAddress);
+                memData.push(this.state.y);
                 this.bus.write(effectiveAddress, this.state.y);
                 break;
             // TAX
@@ -427,8 +453,11 @@ export class Cpu {
             case 0x16:      // Zero Page,X
             case 0x1e: {    // Absolute,X
                 const tmp = this.asl(this.bus.readWord(effectiveAddress, true));
-                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 this.bus.write(effectiveAddress, tmp);
+                memAddress.push(effectiveAddress);
+                memData.push(tmp);
                 this.setArithmeticFlags(tmp);
                 break;
             }
@@ -438,12 +467,12 @@ export class Cpu {
             case 0x89: // 65C02 #Immediate
                 this.setZeroFlag((this.state.a & this.state.args[0]) === 0);
                 break;
-            case 0x34: // 65C02 Zero Page,X
-                break;
             case 0x24:      // Zero Page
             case 0x2c:      // Absolute
             case 0x3c: {    // Absolute,X
                 const tmp = this.bus.readWord(effectiveAddress, true);
+                memAddress.push(effectiveAddress);
+                memData.push(tmp);
                 this.setZeroFlag((this.state.a & tmp) === 0);
                 this.setNegativeFlag((tmp & 0x80) !== 0);
                 this.setOverflowFlag((tmp & 0x40) !== 0);
@@ -455,8 +484,6 @@ export class Cpu {
                 this.state.a |= this.state.args[0];
                 this.setArithmeticFlags(this.state.a);
                 break;
-            case 0x12: // 65C02 ORA (ZP)
-                break;
             case 0x01: // (Zero Page,X)
             case 0x05: // Zero Page
             case 0x0d: // Absolute
@@ -465,9 +492,10 @@ export class Cpu {
             case 0x19: // Absolute,Y
             case 0x1d: // Absolute,X
                 this.state.a |= this.bus.readWord(effectiveAddress, true);
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 this.setArithmeticFlags(this.state.a);
                 break;
-
             case 0xf0: // BEQ - Branch if Equal to Zero - Relative
                 if (this.getZeroFlag()) {
                     this.state.pc = this.relAddress(this.state.args[0]);
@@ -532,6 +560,8 @@ export class Cpu {
             case 0xe4: // Zero Page
             case 0xec: // Absolute
                 this.cmp(this.state.x, this.bus.readWord(effectiveAddress, true));
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 break;
 
             /** CPY - Compare Y Register ********************************************/
@@ -541,12 +571,12 @@ export class Cpu {
             case 0xc4: // Zero Page
             case 0xcc: // Absolute
                 this.cmp(this.state.y, this.bus.readWord(effectiveAddress, true));
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 break;
             /** CMP - Compare Accumulator *******************************************/
             case 0xc9: // #Immediate
                 this.cmp(this.state.a, this.state.args[0]);
-                break;
-            case 0xd2: // 65C02 CMP (ZP)
                 break;
             case 0xc1: // (Zero Page,X)
             case 0xc5: // Zero Page
@@ -556,14 +586,14 @@ export class Cpu {
             case 0xd9: // Absolute,Y
             case 0xdd: // Absolute,X
                 this.cmp(this.state.a, this.bus.readWord(effectiveAddress, true));
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 break;
 
             /** EOR - Exclusive OR **************************************************/
             case 0x49: // #Immediate
                 this.state.a ^= this.state.args[0];
                 this.setArithmeticFlags(this.state.a);
-                break;
-            case 0x52: // 65C02 EOR (ZP)
                 break;
             case 0x41: // (Zero Page,X)
             case 0x45: // Zero Page
@@ -573,6 +603,8 @@ export class Cpu {
             case 0x59: // Absolute,Y
             case 0x5d: // Absolute,X
                 this.state.a ^= this.bus.readWord(effectiveAddress, true);
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 this.setArithmeticFlags(this.state.a);
                 break;
             case 0x38: // SEC - Set Carry Flag - Implied
@@ -594,8 +626,11 @@ export class Cpu {
             case 0x56:      // Zero Page,X
             case 0x5e: {    // Absolute,X
                 const tmp = this.lsr(this.bus.readWord(effectiveAddress, true));
-                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 this.bus.write(effectiveAddress, tmp);
+                memAddress.push(effectiveAddress);
+                memData.push(tmp);
                 this.setArithmeticFlags(tmp);
                 break;
             }
@@ -610,8 +645,11 @@ export class Cpu {
             case 0x36:      // Zero Page,X
             case 0x3e: {    // Absolute,X
                 const tmp = this.rol(this.bus.readWord(effectiveAddress, true));
-                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 this.bus.write(effectiveAddress, tmp);
+                memAddress.push(effectiveAddress);
+                memData.push(tmp);
                 this.setArithmeticFlags(tmp);
                 break;
             }
@@ -626,8 +664,11 @@ export class Cpu {
             case 0x76:      // Zero Page,X
             case 0x7e: {    // Absolute,X
                 const tmp = this.ror(this.bus.readWord(effectiveAddress, true));
-                memoryLog = ' MEM[' + wordToHex(effectiveAddress) + '] = ' + byteToHex(tmp) + ' |';
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 this.bus.write(effectiveAddress, tmp);
+                memAddress.push(effectiveAddress);
+                memData.push(tmp);
                 this.setArithmeticFlags(tmp);
                 break;
             }
@@ -637,8 +678,6 @@ export class Cpu {
                 this.state.a &= this.state.args[0];
                 this.setArithmeticFlags(this.state.a);
                 break;
-            case 0x32: // 65C02 AND (ZP)
-                break;
             case 0x21: // (Zero Page,X)
             case 0x25: // Zero Page
             case 0x2d: // Absolute
@@ -647,9 +686,10 @@ export class Cpu {
             case 0x39: // Absolute,Y
             case 0x3d: // Absolute,X
                 this.state.a &= this.bus.readWord(effectiveAddress, true);
+                memAddress.push(effectiveAddress);
+                memData.push(this.bus.readWord(effectiveAddress, true));
                 this.setArithmeticFlags(this.state.a);
                 break;
-
             case 0x40: {    // RTI - Return from Interrupt - Implied
                 this.setProcessorStatus(this.stackPop());
                 const lo = this.stackPop();
@@ -657,30 +697,26 @@ export class Cpu {
                 this.setProgramCounter(decodeAddress(lo, hi));
                 break;
             }
-
             case 0x60: {    // RTS - Return from Subroutine - Implied
                 const lo = this.stackPop();
                 const hi = this.stackPop();
                 this.setProgramCounter((decodeAddress(lo, hi) + 1) & 0xffff);
                 break;
             }
-
             case 0x20: // JSR - Jump to Subroutine - Implied
-                memoryLog = this.stackPush((this.state.pc - 1 >> 8) & 0xff); // PC high byte
-                memoryLog = memoryLog + this.stackPush(this.state.pc - 1 & 0xff);        // PC low byte
-                this.state.pc = decodeAddress(this.state.args[0], this.state.args[1]) + 16;
+                this.stackPush((this.state.pc - 1 >> 8) & 0xff); // PC high byte
+                this.stackPush(this.state.pc - 1 & 0xff);        // PC low byte
+                this.state.pc = decodeAddress(this.state.args[0], this.state.args[1]);
                 break;
             /** JMP *****************************************************************/
             case 0x4c: {    // JMP - Absolute
                 const teste = decodeAddress(this.state.args[0], this.state.args[1]);
-                this.state.pc = teste + 16;
+                this.state.pc = teste;
                 break;
             }
             case 0x6c: {    // JMP - Indirect
-                const lo = decodeAddress(this.state.args[0], this.state.args[1]) + 16; // Address of low byte
-
+                const lo = decodeAddress(this.state.args[0], this.state.args[1]); // Address of low byte
                 const hi = this.state.args[0] === 0xff ? decodeAddress(0x00, this.state.args[1]) : lo + 1;
-
                 this.state.pc = decodeAddress(this.bus.readByte(lo, true), this.bus.readByte(hi, true));
                 break;
             }
@@ -690,17 +726,26 @@ export class Cpu {
 
         }
         if (this.state.ir !== 0x00) {
-
             const text = process.env.NODE_ENV === 'DEBUG'
-                ? this.state.toTraceEventDebug(currentPC) + memoryLog
-                : this.state.toTraceEvent(currentPC) + memoryLog;
+                ? this.state.toTraceEventDebug(currentPC)
+                : this.state.toTraceEvent(currentPC);
 
             const formattedText = process.env.NODE_ENV === 'DEBUG'
                 ? implemented ? chalk.green(text) : chalk.red(text)
                 : implemented ? text : null;
 
-            if (formattedText !== null) {
-                console.log(formattedText);
+            if(memAddress.length > 0) {
+                if(formattedText !== null) {
+                    process.stdout.write(formattedText);
+                    for(var i = 0; i < memAddress.length; i++) {
+                        process.stdout.write(' mem['+wordToHex(memAddress[i])+'] = '+byteToHex(memData[i])+' |');
+                    }
+                    process.stdout.write('\n');
+                }
+            } else {
+                if(formattedText !== null) {
+                    console.log(formattedText);
+                }
             }
         }
     }
@@ -745,15 +790,13 @@ export class Cpu {
         this.state.pc = this.bus.readWord(address16, true);
     }
 
-    public stackPush(data: number): any {
+    public stackPush(data: number): void {
         this.bus.write(ADDRESS.STACK + this.state.sp, data);
-        const memoryLog = ' MEM[' + wordToHex(ADDRESS.STACK + this.state.sp) + '] = ' + byteToHex(data) + ' |';
         if (this.state.sp === 0) {
             this.state.sp = 0xff;
         } else {
             this.state.sp--;
         }
-        return memoryLog;
     }
 
     public stackPop() {
