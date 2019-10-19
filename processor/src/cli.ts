@@ -2,7 +2,7 @@ import * as fs from 'fs-extra';
 import * as process from 'process';
 
 import {Bus} from './lib/Bus';
-import {ADDRESS, DEFAULT_END_ADDRESS, SIZE} from './lib/constants';
+import {CPU_ADDRESSES, CPU_MEMORY_SIZE, DEFAULT_END_ADDRESS} from './lib/constants';
 import {Cpu, InstructionBreakException} from './lib/Cpu';
 import {CpuState} from './lib/CpuState';
 import {Device} from './lib/devices/Device';
@@ -21,7 +21,7 @@ export async function runNes(nesPath: string) {
     const bus: Bus = new Bus();
 
     // TODO: map other devices
-    const ram: Device = new RamDevice(ADDRESS.ZERO_PAGE, ADDRESS.PRG_ROM - 1, 'RAM');
+    const ram: Device = new RamDevice(CPU_ADDRESSES.ZERO_PAGE, CPU_ADDRESSES.PRG_ROM - 1, 'RAM');
     bus.addDevice(ram);
 
     // TODO: make it work
@@ -30,9 +30,9 @@ export async function runNes(nesPath: string) {
     // }, Buffer.alloc(0));
 
     // TODO: remove this workaround
-    const romBuffer = Buffer.concat([nesFile.roms[1] || Buffer.alloc(SIZE.PRG_ROM), nesFile.roms[0]]);
+    const romBuffer = Buffer.concat([nesFile.roms[1] || Buffer.alloc(CPU_MEMORY_SIZE.PRG_ROM), nesFile.roms[0]]);
 
-    const rom: Device = new RomDevice(ADDRESS.PRG_ROM, DEFAULT_END_ADDRESS, 'PRG_ROM', romBuffer);
+    const rom: Device = new RomDevice(CPU_ADDRESSES.PRG_ROM, DEFAULT_END_ADDRESS, 'PRG_ROM', romBuffer);
 
     bus.addDevice(rom);
 

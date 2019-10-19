@@ -6,7 +6,7 @@ import {CpuState} from './CpuState';
 import {disassembleOp, instructionClocksNmos, instructionSizes} from './disassembler';
 import {byteToHex, decodeAddress, nanoseconds, numberToByte, wordToHex} from './utils';
 import {
-    ADDRESS,
+    CPU_ADDRESSES,
     DEFAULT_CLOCK_PERIOD_IN_NS,
     DEFAULT_SP,
     P_BREAK,
@@ -68,7 +68,7 @@ export class Cpu {
     public reset(): void {
         this.state.sp = DEFAULT_SP;
 
-        this.state.pc = this.bus.readWord(ADDRESS.RST, true);
+        this.state.pc = this.bus.readWord(CPU_ADDRESSES.RST, true);
 
         this.state.ir = 0;
 
@@ -340,26 +340,26 @@ export class Cpu {
             // PHA
             case 0x48: // PHA
                 this.stackPush(this.state.a);
-                memAddress.push(ADDRESS.STACK + this.state.sp + 1);
+                memAddress.push(CPU_ADDRESSES.STACK + this.state.sp + 1);
                 memData.push(this.state.a);
                 break;
             // PHP
             case 0x08: // PHP
                 this.stackPush(this.state.getStatusFlag());
-                memAddress.push(ADDRESS.STACK + this.state.sp + 1);
+                memAddress.push(CPU_ADDRESSES.STACK + this.state.sp + 1);
                 memData.push(this.state.getStatusFlag());
                 break;
             // PLA
             case 0x68:
                 this.state.a = this.stackPop();
-                memAddress.push(ADDRESS.STACK + this.state.sp);
+                memAddress.push(CPU_ADDRESSES.STACK + this.state.sp);
                 memData.push(this.state.a);
                 this.setArithmeticFlags(this.state.a);
                 break;
             // PLP
             case 0x28:
                 this.setProcessorStatus(this.stackPop());
-                memAddress.push(ADDRESS.STACK + this.state.sp);
+                memAddress.push(CPU_ADDRESSES.STACK + this.state.sp);
                 memData.push(this.state.getStatusFlag());
                 break;
             // SBC
@@ -763,17 +763,17 @@ export class Cpu {
     }
 
     private handleBrk(returnPc: number): void {
-        this.handleInterrupt(returnPc, ADDRESS.IRQ, true);
+        this.handleInterrupt(returnPc, CPU_ADDRESSES.IRQ, true);
         this.state.irqAsserted = false;
     }
 
     private handleIrq(returnPc: number): void {
-        this.handleInterrupt(returnPc, ADDRESS.IRQ, false);
+        this.handleInterrupt(returnPc, CPU_ADDRESSES.IRQ, false);
         this.state.irqAsserted = false;
     }
 
     private handleNmi(): void {
-        this.handleInterrupt(this.state.pc, ADDRESS.NMI, false);
+        this.handleInterrupt(this.state.pc, CPU_ADDRESSES.NMI, false);
         this.state.nmiAsserted = false;
     }
 
@@ -791,7 +791,7 @@ export class Cpu {
     }
 
     public stackPush(data: number): void {
-        this.bus.write(ADDRESS.STACK + this.state.sp, data);
+        this.bus.write(CPU_ADDRESSES.STACK + this.state.sp, data);
         if (this.state.sp === 0) {
             this.state.sp = 0xff;
         } else {
@@ -807,11 +807,11 @@ export class Cpu {
             this.state.sp++;
         }
 
-        return this.bus.readByte(ADDRESS.STACK + this.state.sp, true);
+        return this.bus.readByte(CPU_ADDRESSES.STACK + this.state.sp, true);
     }
 
     public stackPeek() {
-        return this.bus.readByte(ADDRESS.STACK + this.state.sp + 1, true);
+        return this.bus.readByte(CPU_ADDRESSES.STACK + this.state.sp + 1, true);
     }
 
     public setProgramCounter(addr: number): void {
