@@ -11,9 +11,17 @@ export const DEFAULT_CLOCK_PERIOD_IN_NS: number = 1000;
 
 export const ROM_SIZE: number = 0xffff;
 
+export const PPU_CYCLES: number = 341 * 241 * 60;
+
+export const SCREEN_WIDTH: number = 256;
+export const SCREEN_HEIGHT: number = 240;
+
 export const DEFAULT_START_ADDRESS: number = 0x0000;
 export const DEFAULT_END_ADDRESS: number = ROM_SIZE;
 export const DEFAULT_SP: number = 0xfd;
+
+export const OAM_RAM_SIZE = 256;
+export const OAM_RAM_SIZE_2 = 32;
 
 // https://en.wikibooks.org/wiki/NES_Programming
 

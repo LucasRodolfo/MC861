@@ -3,7 +3,7 @@
   "rules": {
     "max-line-length": {
       "options": [
-        120
+        160
       ]
     },
     "trailing-comma": false,
@@ -24,6 +24,7 @@
     "no-conditional-assignment": true,
     "no-consecutive-blank-lines": false,
     "no-console": false,
+    "no-empty": false,
     "ordered-imports": false
   },
   "jsRules": {

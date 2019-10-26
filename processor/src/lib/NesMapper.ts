@@ -3,14 +3,14 @@ import * as assert from 'assert';
 // https://wiki.nesdev.com/w/index.php/INES
 
 export enum MirroringType {
-    vertical = 0,
-    horizontal = 1,
-    fourScreen = 2,
-    singleScreen = 3,
-    singleScreen2 = 4,
-    singleScreen3 = 5,
-    singleScreen4 = 6,
-    chrRom = 7
+    VERTICAL = 0,
+    HORIZONTAL = 1,
+    FOUR_SCREEN = 2,
+    SINGLE_SCREEN = 3,
+    SINGLE_SCREEN2 = 4,
+    SINGLE_SCREEN3 = 5,
+    SINGLE_SCREEN4 = 6,
+    CHRROM = 7
 }
 
 export interface INesHeader {
@@ -41,7 +41,7 @@ export enum NesOffset {
     MAGIC = 0x00,
     HEADER = MAGIC + NesSize.MAGIC,
     PRG_ROM = HEADER + NesSize.HEADER,
-    CHR_ROM = PRG_ROM + NesSize.PRG_ROM
+    // CHR_ROM = PRG_ROM + NesSize.PRG_ROM
 }
 
 export class NesMapper {
@@ -62,7 +62,7 @@ export class NesMapper {
         assert(header.romCount >= 1, 'No ROM in this bank');
 
         const roms = this.loadPrgRoms(header.romCount);
-        const vroms = this.loadChrRoms(header.vromCount);
+        const vroms = this.loadChrRoms(header.vromCount, header.romCount);
 
         // TODO: create VROM tiles
         // TODO: convert CHR-ROM banks to tiles
@@ -97,12 +97,12 @@ export class NesMapper {
 
             get mirroringType(): MirroringType {
                 if (this.fourScreen) {
-                    return MirroringType.fourScreen;
+                    return MirroringType.FOUR_SCREEN;
                 }
                 if (this.mirroring === 0) {
-                    return MirroringType.horizontal;
+                    return MirroringType.HORIZONTAL;
                 }
-                return MirroringType.vertical;
+                return MirroringType.VERTICAL;
             }
         };
     }
@@ -111,8 +111,8 @@ export class NesMapper {
         return this.loadRoms(NesOffset.PRG_ROM, NesSize.PRG_ROM, count);
     }
 
-    public loadChrRoms(count: number): Buffer[] {
-        return this.loadRoms(NesOffset.CHR_ROM, NesSize.CHR_ROM, count);
+    public loadChrRoms(count: number, prgRomCount: number): Buffer[] {
+        return this.loadRoms(NesOffset.PRG_ROM + NesSize.PRG_ROM * prgRomCount, NesSize.CHR_ROM, count);
     }
 
     private loadRoms(offset: NesOffset, size: NesSize, count: number): Buffer[] {

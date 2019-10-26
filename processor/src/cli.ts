@@ -1,5 +1,4 @@
 import * as fs from 'fs-extra';
-import * as process from 'process';
 
 import {Bus} from './lib/Bus';
 import {CPU_ADDRESSES, CPU_MEMORY_SIZE, DEFAULT_END_ADDRESS} from './lib/constants';

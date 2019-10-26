@@ -99,6 +99,10 @@ export class Cpu {
         }
     }
 
+    public hasStep(): boolean {
+        return this.state.pc !== 0;
+    }
+
     public step(): void {
         this._opBeginTime = nanoseconds();
 
@@ -214,8 +218,8 @@ export class Cpu {
 
         const effectiveAddress = this.calculateEffectiveAddress(irAddressMode, irOpMode);
         let implemented = true;
-        let memAddress: number[] = new Array();
-        let memData: number[] = new Array();
+        const memAddress: number[] = new Array();
+        const memData: number[] = new Array();
 
         switch (this.state.ir) {
             case 0x00: // BRK - Force Interrupt - Implied
@@ -463,7 +467,7 @@ export class Cpu {
             }
 
             /** BIT - Bit Test ******************************************************/
-            //Nao foi testado ainda.
+            // Nao foi testado ainda.
             case 0x89: // 65C02 #Immediate
                 this.setZeroFlag((this.state.a & this.state.args[0]) === 0);
                 break;
@@ -725,6 +729,9 @@ export class Cpu {
                 this.state.noOp = true;
 
         }
+
+        // TODO: show only if running in CLI mode
+        return;
         if (this.state.ir !== 0x00) {
             const text = process.env.NODE_ENV === 'DEBUG'
                 ? this.state.toTraceEventDebug(currentPC)
@@ -734,16 +741,16 @@ export class Cpu {
                 ? implemented ? chalk.green(text) : chalk.red(text)
                 : implemented ? text : null;
 
-            if(memAddress.length > 0) {
-                if(formattedText !== null) {
+            if (memAddress.length > 0) {
+                if (formattedText !== null) {
                     process.stdout.write(formattedText);
-                    for(var i = 0; i < memAddress.length; i++) {
-                        process.stdout.write(' mem['+wordToHex(memAddress[i])+'] = '+byteToHex(memData[i])+' |');
+                    for (let i = 0; i < memAddress.length; i++) {
+                        process.stdout.write(' mem[' + wordToHex(memAddress[i]) + '] = ' + byteToHex(memData[i]) + ' |');
                     }
                     process.stdout.write('\n');
                 }
             } else {
-                if(formattedText !== null) {
+                if (formattedText !== null) {
                     console.log(formattedText);
                 }
             }
@@ -762,17 +769,17 @@ export class Cpu {
         }
     }
 
-    private handleBrk(returnPc: number): void {
+    public handleBrk(returnPc: number): void {
         this.handleInterrupt(returnPc, CPU_ADDRESSES.IRQ, true);
         this.state.irqAsserted = false;
     }
 
-    private handleIrq(returnPc: number): void {
+    public handleIrq(returnPc: number): void {
         this.handleInterrupt(returnPc, CPU_ADDRESSES.IRQ, false);
         this.state.irqAsserted = false;
     }
 
-    private handleNmi(): void {
+    public handleNmi(): void {
         this.handleInterrupt(this.state.pc, CPU_ADDRESSES.NMI, false);
         this.state.nmiAsserted = false;
     }
@@ -938,7 +945,7 @@ export class Cpu {
     }
 
     private rol(m: number) {
-        var result = ((m << 1) | this.getCarryBit()) & 0xff;
+        const result = ((m << 1) | this.getCarryBit()) & 0xff;
         this.setCarryFlag((m & 0x80) !== 0);
         return result;
     }
@@ -957,10 +964,10 @@ export class Cpu {
     }
 
     private adc(acc: number, operand: number): number {
-        var result = (operand & 0xff) + (acc & 0xff) + this.getCarryBit();
-        var carry6 = (operand & 0x7f) + (acc & 0x7f) + this.getCarryBit();
+        let result = (operand & 0xff) + (acc & 0xff) + this.getCarryBit();
+        const carry6 = (operand & 0x7f) + (acc & 0x7f) + this.getCarryBit();
         this.state.carryFlag = (result & 0x100) !== 0;
-        this.state.overflowFlag = ((this.state.carryFlag ? 1 : 0) ^ (((carry6 & 0x80) !== 0) ? 1 : 0)) ? true : false;
+        this.state.overflowFlag = !!((this.state.carryFlag ? 1 : 0) ^ (((carry6 & 0x80) !== 0) ? 1 : 0));
         result &= 0xff;
         this.setArithmeticFlags(result);
         return result;
@@ -968,11 +975,13 @@ export class Cpu {
 
 
     private adcDecimal(acc: number, operand: number): number {
-        var l, h, result;
+        let l;
+        let h;
+        let result;
         l = (acc & 0x0f) + (operand & 0x0f) + this.getCarryBit();
-        if ((l & 0xff) > 9) l += 6;
+        if ((l & 0xff) > 9) { l += 6; }
         h = (acc >> 4) + (operand >> 4) + (l > 15 ? 1 : 0);
-        if ((h & 0xff) > 9) h += 6;
+        if ((h & 0xff) > 9) { h += 6; }
         result = (l & 0x0f) | (h << 4);
         result &= 0xff;
         this.state.carryFlag = h > 15;
