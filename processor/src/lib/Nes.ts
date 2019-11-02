@@ -84,11 +84,15 @@ export class Nes {
 
         const display = new Display(canvas);
 
-        const vromBuffer = Buffer.concat(nesFile.vroms);
+        const vramBuffer = Buffer.alloc(0x10000);
+        Buffer.concat(nesFile.vroms).copy(vramBuffer);
 
-        // const vrom: Device = new RomDevice(CPU_ADDRESSES., DEFAULT_END_ADDRESS, 'CHR_ROM', vromBuffer);
+        // @ts-ignore
+        window.nesFile = nesFile;
 
-        this.ppu = new Ppu(this.bus, this.cpu, display, nesFile.header.mirroringType, vromBuffer);
+        // const vrom: Device = new RomDevice(CPU_ADDRESSES., DEFAULT_END_ADDRESS, 'CHR_ROM', vramBuffer);
+
+        this.ppu = new Ppu(this.bus, this.cpu, display, nesFile.header.mirroringType, vramBuffer);
 
         // PPU Registers
 

@@ -11,7 +11,8 @@ export const DEFAULT_CLOCK_PERIOD_IN_NS: number = 1000;
 
 export const ROM_SIZE: number = 0xffff;
 
-export const PPU_CYCLES: number = 341 * 241 * 60;
+// export const PPU_CYCLES: number = 341 * 241 * 60;
+export const PPU_CYCLES: number = 3;
 
 export const SCREEN_WIDTH: number = 256;
 export const SCREEN_HEIGHT: number = 240;

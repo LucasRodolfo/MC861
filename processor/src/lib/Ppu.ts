@@ -74,6 +74,8 @@ export class Ppu {
     }
 
     public init(): void {
+        // @ts-ignore
+        window.that = this;
 
         this.ppustatus.store(0x80);
 
@@ -177,7 +179,7 @@ export class Ppu {
     }
 
     public loadRegister(address: number) {
-        switch (address) {
+        switch (address + 0x2000) {
 
             // ppustatus load
 
@@ -216,7 +218,7 @@ export class Ppu {
     }
 
     public storeRegister(address: number, value: number) {
-        switch (address) {
+        switch (address + 0x2000) {
 
             // ppuctrl store
 
@@ -303,16 +305,12 @@ export class Ppu {
                     this.oamRam.store(i, this.bus.readByte(offset + i, false));
                 }
 
-                // this.cpu.stallCycle += 514;
-
                 break;
         }
     }
 
     public load(address: number): number {
-        address = address & 0x3FFF;  // just in case
-
-        // 0x0000 - 0x1FFF is mapped with cartridge's CHR-ROM if it exists
+        address = address & 0x3FFF;
 
         if (address < 0x2000 && this.hasChrRom) {
             return this.bus.readByte(address, false);
@@ -356,14 +354,11 @@ export class Ppu {
             address = 0x3F0C;
         }
 
-        // TODO: remove >> 4 workaround
-        return this.vRam.load(address >> 4);
+        return this.vRam.load(address);
     }
 
     public store(address: number, value: number) {
-        address = address & 0x3FFF;  // just in case
-
-        // 0x0000 - 0x1FFF is mapped with cartridge's CHR-ROM if it exists
+        address = address & 0x3FFF;
 
         if (address < 0x2000 && this.hasChrRom === true) {
             this.bus.write(address, value);

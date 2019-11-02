@@ -34,7 +34,7 @@ export enum NesSize {
     MAGIC = 0x04,
     HEADER = 0x0c,
     PRG_ROM = 0x4000,
-    CHR_ROM = 0x1000
+    CHR_ROM = 0x2000
 }
 
 export enum NesOffset {
@@ -88,7 +88,7 @@ export class NesMapper {
         // tslint:disable:object-literal-sort-keys
         return {
             romCount: raw[0],
-            vromCount: raw[1] * 2,
+            vromCount: raw[1],
             mirroring: raw[2] & 1 ? 1 : 0,
             batteryRam: (raw[2] >> 1) & 1,
             trainer: (raw[2] >> 2) & 1,

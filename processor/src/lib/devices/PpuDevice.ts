@@ -12,7 +12,7 @@ export class PpuDevice extends Device {
     }
 
     public write(address: number, data: number): void {
-        this.ppu.store(address, data);
+        this.ppu.storeRegister(address, data);
     }
 
     public writeBuffer(address: number, buffer: Buffer): void {
@@ -20,7 +20,7 @@ export class PpuDevice extends Device {
     }
 
     public readByte(address: number, cpuAccess: boolean): number {
-        return this.ppu.load(address);
+        return this.ppu.loadRegister(address);
     }
 
     public mirror(startAddress: number, endAddress: number, name: string): PpuDevice {
