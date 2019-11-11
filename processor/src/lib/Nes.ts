@@ -125,7 +125,7 @@ export class Nes {
                 if (this.cpu.hasStep()) {
                     this.cpu.step();
 
-                    for (let i = 0; i < PPU_CYCLES; i++) {
+                    for (let i = 0; i < PPU_CYCLES; i++) { // quantos ciclos?
                         this.ppu.runCycle();
                     }
 

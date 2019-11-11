@@ -103,10 +103,10 @@ export class Bus {
 
     public write(address: number, value: number): void {
 
-        const device = this.deviceAt(address);
+        var device = this.deviceAt(address);
 
         const deviceAddress = address - device.memoryRange.startAddress;
-
+        
         device.write(deviceAddress, value);
     }
 

@@ -17,8 +17,8 @@ export class Ppu {
 
     private hasChrRom: boolean;
 
-    private vRam: Memory;       // 16KB
-    private oamRam: Memory;     // 256B, primary OAM memory
+    private vRam: Memory;       // 16KB - pallet table
+    private oamRam: Memory;     // 256B, primary OAM memory  - pallet?
     private oamRam2: Memory;    // 32B, secondary OAM memory
 
     private ppuctrl = new PpuControlRegister();  // 0x2000
@@ -106,7 +106,7 @@ export class Ppu {
         this.evaluateSprites();
         this.updateFlags();
         this.countUpScrollCounters();
-        this.countUpCycle();
+        this.countUpCycle(); 
     }
 
     public renderPixel(): void {
@@ -179,8 +179,16 @@ export class Ppu {
     }
 
     public loadRegister(address: number) {
+        if(address == 0x00) {
+            console.log('LOAD REGISTER');
+            console.log(address);
+            console.log(this.ppuctrl);
+            console.log(this.ppumask);
+            console.log(this.ppustatus);
+        }
+        
         switch (address + 0x2000) {
-
+            
             // ppustatus load
 
             case 0x2002: {
@@ -218,6 +226,7 @@ export class Ppu {
     }
 
     public storeRegister(address: number, value: number) {
+        //console.log(address+' - '+value);
         switch (address + 0x2000) {
 
             // ppuctrl store
@@ -232,6 +241,7 @@ export class Ppu {
 
             case 0x2001:
                 this.ppumask.store(value);
+                //debugger ;
                 break;
 
             // oamaddr store
@@ -312,8 +322,8 @@ export class Ppu {
     public load(address: number): number {
         address = address & 0x3FFF;
 
-        if (address < 0x2000 && this.hasChrRom) {
-            return this.bus.readByte(address, false);
+        if (address < 0x2000 && this.hasChrRom) {   //pattern table
+            return this.bus.readByte(address, false); // ??????????? pattern table
         }
 
         // 0x0000 - 0x0FFF: pattern table 0
@@ -326,13 +336,14 @@ export class Ppu {
         // 0x3F00 - 0x3F1F: Palette RAM indices
         // 0x3F20 - 0x3FFF: Mirrors of 0x3F00 - 0x3F1F
 
-        if (address >= 0x2000 && address < 0x3F00) {
+        if (address >= 0x2000 && address < 0x3F00) {    //nametable
             return this.vRam.load(this.getNameTableAddressWithMirroring(address & 0x2FFF));
         }
 
-        if (address >= 0x3F00 && address < 0x4000) {
+        if (address >= 0x3F00 && address < 0x4000) {    //pallet memory
             address = address & 0x3F1F;
         }
+        // 0x00?? sera?
 
         // Addresses for palette
         // 0x3F10/0x3F14/0x3F18/0x3F1C are mirrors of
@@ -469,7 +480,7 @@ export class Ppu {
             index = index & 0x30;
         }
 
-        return COLOR_PALETTES[this.load(0x3F00 + index)];
+        return COLOR_PALETTES[this.load(0x3F00 + index)]; // tentar imprimir valores, n cor
     }
 
     public fetch() {
@@ -566,8 +577,8 @@ export class Ppu {
                 this.display.updateScreen();
 
                 // if(this.ppuctrl.enabledNmi() === true)
-                //  this.cpu.interrupt(this.cpu.INTERRUPTS.NMI);
-            } else if (this.scanLine === 261) {
+                  //this.cpu.handleNmi();
+            } else if (this.scanLine === 261) { // n seria scanline = -1?
                 this.ppustatus.clearVBlank();
                 this.ppustatus.clearZeroHit();
                 this.ppustatus.clearOverflow();
@@ -717,7 +728,10 @@ export class Ppu {
             }
 
             const bx = s.getXPosition();
-            const by = s.getYPosition();
+            //const by = s.getYPosition();
+            //const bx = 0x10;
+            const by = 0x80;
+
             const j = ay - by;
             const cy = s.doFlipVertically() ? height - j - 1 : j;
             const horizontal = s.doFlipHorizontally();
