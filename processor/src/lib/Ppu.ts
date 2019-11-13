@@ -14,7 +14,6 @@ export class Ppu {
 
     private scanLine: number = 0;
     private cycle: number = 0;
-
     private hasChrRom: boolean;
 
     private vRam: Memory;       // 16KB - pallet table
@@ -575,8 +574,7 @@ export class Ppu {
             if (this.scanLine === 241) {
                 this.ppustatus.setVBlank();
                 this.display.updateScreen();
-
-                // if(this.ppuctrl.enabledNmi() === true)
+                //if(this.ppuctrl.enabledNmi() === true)
                   //this.cpu.handleNmi();
             } else if (this.scanLine === 261) { // n seria scanline = -1?
                 this.ppustatus.clearVBlank();
@@ -728,9 +726,9 @@ export class Ppu {
             }
 
             const bx = s.getXPosition();
-            //const by = s.getYPosition();
-            //const bx = 0x10;
-            const by = 0x80;
+            const by = s.getYPosition();
+            //const bx = 0x80;
+            //const by = 0x80;
 
             const j = ay - by;
             const cy = s.doFlipVertically() ? height - j - 1 : j;

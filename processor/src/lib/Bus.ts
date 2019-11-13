@@ -121,7 +121,7 @@ export class Bus {
 
     private deviceAt(address: number): Device {
 
-        const device = this.deviceAddressArray[address - this.startAddress];
+        const device = address == 16404 ? this.deviceAddressArray[0x2000 - this.startAddress] : this.deviceAddressArray[address - this.startAddress];
         if (!device) {
             throw new MemoryAccessException(sprintf('Bus write failed. No device at address $%04X', address));
         }
