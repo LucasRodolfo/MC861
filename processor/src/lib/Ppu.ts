@@ -73,9 +73,6 @@ export class Ppu {
     }
 
     public init(): void {
-        // @ts-ignore
-        window.that = this;
-
         this.ppustatus.store(0x80);
 
         this.spritePixels = [];
@@ -735,7 +732,9 @@ export class Ppu {
             const horizontal = s.doFlipHorizontally();
             const ptIndex = (height === 8) ? s.getTileIndex() : s.getTileIndexForSize16();
             const msb = s.getPalletNum();
-
+            if(ay == 127) {
+                debugger ; // ajuda a parar quando vai começar a imprimir o tile
+            }
             for (let k = 0; k < 8; k++) {
                 const cx = horizontal ? 7 - k : k;
                 const x = bx + k;
@@ -775,7 +774,6 @@ export class Ppu {
             a = this.load(index + ay);
             b = this.load(index + ay + 0x8);
         }
-
         return ((a >> (7 - ax)) & 1) | (((b >> (7 - ax)) & 1) << 1);
     }
 

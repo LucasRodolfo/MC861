@@ -733,12 +733,12 @@ export class Cpu {
         // TODO: show only if running in CLI mode
         if(this.state.pc < 0xc019 || this.state.pc > 0xc035) {
             if(this.state.ir != 0x10 && this.state.ir != 0x2c) {
-                console.log(this.state.toTraceEventDebug(currentPC));
+               // console.log(this.state.toTraceEventDebug(currentPC));
                 //debugger ;
             }
         }
         if(this.state.ir == 0x4c) {
-            debugger ;
+            //debugger ;
         }
         
         

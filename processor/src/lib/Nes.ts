@@ -123,12 +123,12 @@ export class Nes {
 
             const run = () => {
                 if (this.cpu.hasStep()) {
-                    this.cpu.step();
-
                     for (let i = 0; i < PPU_CYCLES; i++) { // quantos ciclos?
+                        this.cpu.step();
+                        this.ppu.runCycle();
+                        this.ppu.runCycle();
                         this.ppu.runCycle();
                     }
-
                     requestAnimationFrame(run);
                 } else {
                     resolve(this.cpu.state.pc);
