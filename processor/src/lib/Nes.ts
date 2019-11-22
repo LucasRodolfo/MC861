@@ -27,6 +27,9 @@ export class Nes {
 
         const nes = await fs.readFile(nesPath);
 
+        // @ts-ignore
+        window.that = this;
+
         const mapper = new NesMapper(nes);
         const nesFile = mapper.parse();
 
@@ -48,6 +51,10 @@ export class Nes {
         const ram: RamDevice = new RamDevice(CPU_ADDRESSES.RAM, CPU_ADDRESSES.RAM + CPU_MEMORY_SIZE.RAM, 'RAM');
         this.bus.addDevice(ram);
 
+        // @ts-ignore
+        window.ram = ram;
+        console.log(CPU_ADDRESSES.RAM);
+
         for (let i = 1; i <= CPU_MEMORY_MIRRORS.RAM; i++) {
             const addr = CPU_ADDRESSES.RAM + i * CPU_MEMORY_SIZE.RAM;
             const mirror = ram.mirror(addr, addr + CPU_MEMORY_SIZE.RAM - 1, `RAM (mirror #${i}`);
@@ -63,6 +70,10 @@ export class Nes {
         const romBuffer = Buffer.concat([nesFile.roms[1] || Buffer.alloc(CPU_MEMORY_SIZE.PRG_ROM), nesFile.roms[0]]);
 
         const rom: Device = new RomDevice(CPU_ADDRESSES.PRG_ROM, DEFAULT_END_ADDRESS, 'PRG_ROM', romBuffer);
+
+        // @ts-ignore
+        window.rom = rom;
+        console.log(CPU_ADDRESSES.PRG_ROM);
 
         this.bus.addDevice(rom);
 

@@ -7,6 +7,8 @@ import {Bus} from './Bus';
 import {Cpu} from './Cpu';
 import {RamDevice} from './devices/RamDevice';
 
+const ROM_OFFSET = 0xC000;
+
 // https://wiki.nesdev.com/w/index.php/PPU
 export class Ppu {
 
@@ -309,7 +311,7 @@ export class Ppu {
         address = address & 0x3FFF;
 
         if (address < 0x2000 && this.hasChrRom) {
-            return this.bus.readByte(address, false);
+            return this.bus.readByte(ROM_OFFSET + address, false);
         }
 
         // 0x0000 - 0x0FFF: pattern table 0
@@ -357,7 +359,7 @@ export class Ppu {
         address = address & 0x3FFF;
 
         if (address < 0x2000 && this.hasChrRom === true) {
-            this.bus.write(address, value);
+            this.bus.write(ROM_OFFSET + address, value);
             return;
         }
 
