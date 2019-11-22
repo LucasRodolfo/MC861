@@ -54,17 +54,6 @@ export class Nes {
             this.bus.addDevice(mirror);
         }
 
-        // PPU Registers
-
-        // const ppuRegisters = new RamDevice(CPU_ADDRESSES.PPU_REG, CPU_ADDRESSES.PPU_REG + CPU_MEMORY_SIZE.PPU_REG, 'PPU_REG');
-        // this.bus.addDevice(ppuRegisters);
-        //
-        // for (let i = 1; i <= CPU_MEMORY_MIRRORS.PPU_REG; i++) {
-        //     const addr = CPU_ADDRESSES.PPU_REG + i * CPU_MEMORY_SIZE.PPU_REG;
-        //     const mirror = ppuRegisters.mirror(addr, addr + CPU_MEMORY_SIZE.PPU_REG - 1, `PPU_REG (mirror #${i}`);
-        //     this.bus.addDevice(mirror);
-        // }
-
         // APU Registers
 
         // TODO
@@ -86,11 +75,6 @@ export class Nes {
 
         const vramBuffer = Buffer.alloc(0x10000);
         Buffer.concat(nesFile.vroms).copy(vramBuffer);
-
-        // @ts-ignore
-        window.nesFile = nesFile;
-
-        // const vrom: Device = new RomDevice(CPU_ADDRESSES., DEFAULT_END_ADDRESS, 'CHR_ROM', vramBuffer);
 
         this.ppu = new Ppu(this.bus, this.cpu, display, nesFile.header.mirroringType, vramBuffer);
 
@@ -123,7 +107,7 @@ export class Nes {
 
             const run = () => {
                 if (this.cpu.hasStep()) {
-                    for (let i = 0; i < PPU_CYCLES; i++) { // quantos ciclos?
+                    for (let i = 0; i < PPU_CYCLES; i++) {
                         this.cpu.step();
                         this.ppu.runCycle();
                         this.ppu.runCycle();

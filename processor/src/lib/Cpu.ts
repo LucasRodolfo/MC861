@@ -731,18 +731,7 @@ export class Cpu {
         }
 
         // TODO: show only if running in CLI mode
-        if(this.state.pc < 0xc019 || this.state.pc > 0xc035) {
-            if(this.state.ir != 0x10 && this.state.ir != 0x2c) {
-               // console.log(this.state.toTraceEventDebug(currentPC));
-                //debugger ;
-            }
-        }
-        if(this.state.ir == 0x4c) {
-            //debugger ;
-        }
-        
-        
-        return;
+        return ;
         if (this.state.ir !== 0x00) {
             const text = process.env.NODE_ENV === 'DEBUG'
                 ? this.state.toTraceEventDebug(currentPC)
